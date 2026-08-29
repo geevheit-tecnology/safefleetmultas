@@ -1,0 +1,1703 @@
+# PROMPT MESTRE — ANTT CONTROL
+
+## CONTEXTO DO PROJETO
+
+Desenvolva um produto SaaS chamado **ANTT Control**, uma plataforma de gestão de risco regulatório e acompanhamento de autos de infração para transportadoras.
+
+O produto deve começar focado em **ANTT / transporte rodoviário de cargas**, mas sua arquitetura precisa permitir futuramente incorporar outros órgãos reguladores.
+
+O conceito central do produto é:
+
+> **Cada multa/autuação deve ser tratada como um paciente em um hospital.**
+
+Ou seja, cada ocorrência possui:
+
+**ENTRADA → TRIAGEM → DIAGNÓSTICO → TRATAMENTO → ACOMPANHAMENTO → DECISÃO → ALTA → HISTÓRICO → PREVENÇÃO**
+
+O sistema não deve ser apenas um cadastro de multas.
+
+Ele deve ajudar presidentes, diretores, gestores e responsáveis pelo compliance a responder:
+
+1. O que aconteceu?
+2. Qual legislação está relacionada?
+3. Qual o risco?
+4. Qual prazo existe?
+5. O que precisa ser feito agora?
+6. Quem é responsável?
+7. Já aconteceu algo parecido?
+8. Existe risco de reincidência?
+9. O que mudou na legislação?
+10. Como evitar que aconteça novamente?
+
+---
+
+# 1. OBJETIVO
+
+Construir uma aplicação **Web + Android + iOS**, multiempresa, segura, escalável e preparada para IA.
+
+A aplicação deve ser profissional, simples, objetiva e adequada para uso por executivos.
+
+Não criar uma interface excessivamente carregada.
+
+O usuário deve conseguir entender a situação regulatória da empresa em poucos segundos.
+
+---
+
+# 2. STACK OBRIGATÓRIA
+
+Utilizar:
+
+### Frontend
+
+* React Native
+* Expo
+* TypeScript
+* React Native Web
+* Expo Router
+
+### Backend
+
+* Kotlin
+* Ktor
+* Gradle
+* Kotlin Coroutines
+* REST API
+* arquitetura modular
+
+### Banco
+
+* Neon PostgreSQL
+
+### Storage
+
+Utilizar storage compatível com S3 para documentos.
+
+Não armazenar arquivos PDF/imagens diretamente no PostgreSQL.
+
+### Infraestrutura
+
+* Docker
+* Docker Compose
+* variáveis de ambiente
+* migrations versionadas
+
+### Testes
+
+* testes unitários
+* testes de integração
+* testes de API
+* testes de regras de negócio
+
+---
+
+# 3. PRINCÍPIO ARQUITETURAL
+
+Não colocar regra de negócio importante dentro do frontend.
+
+O frontend deve consumir a API.
+
+Toda regra relacionada a:
+
+* multas
+* status
+* prazos
+* risco
+* reincidência
+* legislação
+* workflow
+* permissões
+* auditoria
+
+deve ficar no backend.
+
+A aplicação deve seguir uma arquitetura próxima de:
+
+```text
+apps/
+  mobile/
+  web/
+
+backend/
+  api/
+
+  modules/
+    organizations/
+    users/
+    regulatory_cases/
+    deadlines/
+    documents/
+    legislation/
+    risk/
+    notifications/
+    intelligence/
+    audit/
+
+packages/
+  shared/
+  api-client/
+  ui/
+
+database/
+  migrations/
+
+infra/
+  docker/
+  scripts/
+```
+
+Se uma estrutura melhor for tecnicamente justificável, documente a decisão antes de alterar a estrutura.
+
+---
+
+# 4. MULTI-TENANCY
+
+O sistema deve ser multiempresa desde o primeiro commit.
+
+Criar:
+
+```text
+organizations
+users
+organization_members
+roles
+permissions
+```
+
+Todas as entidades pertencentes a uma empresa devem possuir:
+
+```text
+organization_id
+```
+
+Nunca permitir que um usuário de uma organização consulte dados de outra.
+
+Implementar autorização no backend.
+
+Não confiar somente no frontend.
+
+---
+
+# 5. NÃO CRIAR CADASTRO OBRIGATÓRIO DE VEÍCULOS
+
+O ANTT Control NÃO é um sistema de gestão de frota.
+
+Não criar fluxo obrigatório de:
+
+* cadastro de veículos
+* cadastro de motoristas
+* manutenção
+* combustível
+* pneus
+
+Uma ocorrência pode possuir informações como:
+
+```text
+vehicle_plate
+driver_name
+driver_document
+rntrc
+```
+
+mas esses dados devem ser informações relacionadas ao caso e não exigir que exista um cadastro prévio.
+
+---
+
+# 6. CONCEITO DE PRONTUÁRIO
+
+A entidade central do sistema será:
+
+```text
+regulatory_case
+```
+
+Não tratar simplesmente como:
+
+```text
+multa
+```
+
+Porque futuramente a entidade deverá suportar:
+
+* Auto de Infração
+* Notificação
+* Processo Administrativo
+* Decisão
+* Recurso
+* outras ocorrências regulatórias
+
+Cada caso deve possuir histórico completo.
+
+---
+
+# 7. ESTADOS DO PRONTUÁRIO
+
+Implementar uma máquina de estados.
+
+Estado inicial:
+
+```text
+RECEIVED
+```
+
+Possíveis estados:
+
+```text
+RECEIVED
+TRIAGE
+ANALYSIS
+ACTION_REQUIRED
+IN_TREATMENT
+WAITING_DOCUMENTS
+WAITING_EXTERNAL
+DECISION
+APPEAL
+FINALIZATION
+CLOSED
+```
+
+Não permitir mudanças arbitrárias de estado.
+
+Toda mudança deve gerar evento no histórico.
+
+Exemplo:
+
+```text
+case_status_history
+
+id
+case_id
+old_status
+new_status
+changed_by
+reason
+created_at
+```
+
+---
+
+# 8. TIMELINE
+
+Toda ocorrência deve possuir uma timeline visual.
+
+Exemplo:
+
+```text
+21/08
+Auto recebido
+
+21/08
+Documento anexado
+
+22/08
+Triagem realizada
+
+22/08
+Risco classificado
+
+23/08
+Responsável definido
+
+25/08
+Documentação recebida
+
+27/08
+Defesa protocolada
+
+AGUARDANDO DECISÃO
+```
+
+Cada evento deve registrar:
+
+* usuário
+* data/hora
+* ação
+* descrição
+* documento relacionado quando existir
+
+Nenhuma alteração importante deve ocorrer sem rastreabilidade.
+
+---
+
+# 9. DADOS DA OCORRÊNCIA
+
+Criar suporte para:
+
+```text
+case_number
+infraction_number
+process_number
+organization_id
+category
+subcategory
+description
+event_date
+received_at
+amount
+status
+severity
+risk_score
+vehicle_plate
+driver_name
+driver_document
+rntrc
+location
+authority
+responsible_user_id
+source
+created_at
+updated_at
+closed_at
+```
+
+Não assumir que todos os campos estarão presentes.
+
+---
+
+# 10. DOCUMENTOS
+
+Criar:
+
+```text
+case_documents
+document_versions
+```
+
+Suportar:
+
+* PDF
+* JPG
+* PNG
+* documentos digitalizados
+* documentos gerados
+
+Tipos:
+
+```text
+AUTO_INFRINGEMENT
+NOTIFICATION
+CTE
+MDFE
+CIOT
+PROOF
+DEFENSE
+PROTOCOL
+DECISION
+OTHER
+```
+
+Registrar:
+
+* nome
+* tipo
+* tamanho
+* hash
+* usuário
+* data
+* storage key
+* versão
+
+---
+
+# 11. UPLOAD INTELIGENTE
+
+O usuário poderá:
+
+1. enviar PDF
+2. enviar imagem
+3. fotografar documento pelo celular
+
+O sistema deve preparar uma camada de OCR/IA.
+
+Fluxo:
+
+```text
+DOCUMENTO
+    ↓
+OCR
+    ↓
+EXTRAÇÃO
+    ↓
+CLASSIFICAÇÃO
+    ↓
+CONFIRMAÇÃO HUMANA
+    ↓
+GRAVAÇÃO
+```
+
+Nunca salvar automaticamente dados críticos extraídos pela IA sem confirmação do usuário.
+
+---
+
+# 12. IA
+
+Criar uma camada desacoplada de IA.
+
+Não espalhar chamadas de IA pelo código.
+
+Criar uma interface semelhante a:
+
+```text
+AiProvider
+```
+
+com implementações independentes.
+
+A IA deverá futuramente executar:
+
+### Document Reader
+
+Extrair informações dos documentos.
+
+### Regulatory Classifier
+
+Classificar o tipo de ocorrência.
+
+### Legal Mapper
+
+Relacionar ocorrência com legislação.
+
+### Executive Summary
+
+Criar resumo executivo.
+
+### Preventive Intelligence
+
+Identificar padrões.
+
+---
+
+# 13. REGRA DE SEGURANÇA DA IA
+
+A IA NÃO deve se apresentar como advogado.
+
+Nunca afirmar:
+
+```text
+"Você vai ganhar o recurso."
+```
+
+Nunca tomar decisão jurídica definitiva.
+
+Utilizar linguagem como:
+
+```text
+"Foi identificado um possível ponto de atenção."
+
+"Esta legislação pode estar relacionada ao caso."
+
+"Recomenda-se validar esta informação."
+
+"Fonte utilizada: ..."
+```
+
+Toda análise regulatória gerada por IA deve possuir referência da fonte utilizada.
+
+---
+
+# 14. LEGISLAÇÃO
+
+Criar:
+
+```text
+legal_documents
+legal_versions
+legal_articles
+legal_sources
+```
+
+Cada norma deve possuir:
+
+```text
+title
+number
+year
+type
+issuing_authority
+published_at
+effective_from
+effective_until
+status
+official_url
+source_hash
+```
+
+Nunca sobrescrever silenciosamente uma legislação antiga.
+
+Manter versionamento.
+
+---
+
+# 15. REGRA FUNDAMENTAL DE LEGISLAÇÃO
+
+O sistema deve conseguir responder:
+
+> "Qual era a regra vigente na data desta ocorrência?"
+
+Portanto, legislação deve ser versionada por período de vigência.
+
+Não utilizar simplesmente a legislação atualmente vigente para analisar ocorrências históricas.
+
+---
+
+# 16. RADAR REGULATÓRIO
+
+Criar o módulo:
+
+```text
+RADAR
+```
+
+Objetivo:
+
+Identificar novas normas e alterações relevantes da ANTT.
+
+Fluxo:
+
+```text
+FONTES OFICIAIS
+      ↓
+INGESTÃO
+      ↓
+NORMALIZAÇÃO
+      ↓
+CLASSIFICAÇÃO
+      ↓
+COMPARAÇÃO
+      ↓
+IMPACTO
+      ↓
+ALERTA
+```
+
+Priorizar fontes oficiais.
+
+Não utilizar blogs ou sites aleatórios como fonte principal de legislação.
+
+---
+
+# 17. IMPACT ANALYSIS
+
+Quando uma nova norma for cadastrada, o sistema deve procurar casos potencialmente relacionados.
+
+Exemplo:
+
+```text
+Nova regra
+    ↓
+Tema CIOT
+    ↓
+12 casos relacionados
+    ↓
+3 potencialmente afetados
+```
+
+Mostrar:
+
+```text
+IMPACTO REGULATÓRIO
+
+Alto
+Médio
+Baixo
+```
+
+Sempre deixar claro que a identificação automática é uma análise de apoio.
+
+---
+
+# 18. MOTOR DE RISCO
+
+Criar um serviço independente:
+
+```text
+RiskEngine
+```
+
+O score pode considerar:
+
+```text
+severity
+amount
+deadline_proximity
+repetition
+regulatory_impact
+case_status
+```
+
+Gerar:
+
+```text
+risk_score: 0-100
+```
+
+Classificação:
+
+```text
+0-24    LOW
+25-49   MEDIUM
+50-74   HIGH
+75-100  CRITICAL
+```
+
+Esses limites devem ficar configuráveis.
+
+Não codificar números espalhados pelo projeto.
+
+---
+
+# 19. REINCIDÊNCIA
+
+Criar:
+
+```text
+case_relationships
+```
+
+Permitir relacionar ocorrências por:
+
+* tema
+* infração
+* legislação
+* processo
+* padrão
+* empresa
+
+O sistema pode sugerir:
+
+> "Foram encontradas 3 ocorrências semelhantes."
+
+Mas NÃO afirmar automaticamente que existe reincidência jurídica.
+
+Utilizar:
+
+```text
+POSSIBLE_REPETITION
+```
+
+ou:
+
+```text
+RELATED_CASE
+```
+
+e exigir validação humana para conclusões jurídicas.
+
+---
+
+# 20. MOTOR DE PRAZOS
+
+Criar:
+
+```text
+case_deadlines
+```
+
+Campos:
+
+```text
+deadline_type
+start_event
+legal_basis
+duration
+due_date
+status
+responsible_user_id
+```
+
+Suportar:
+
+```text
+PENDING
+COMPLETED
+EXPIRED
+CANCELLED
+```
+
+Criar alertas:
+
+```text
+15 dias
+7 dias
+3 dias
+1 dia
+vencido
+```
+
+Não assumir que toda multa possui o mesmo prazo.
+
+O prazo deve estar associado à regra aplicável e sua fonte.
+
+Sempre permitir validação humana da data calculada.
+
+---
+
+# 21. CENTRAL DE AÇÕES
+
+Criar:
+
+```text
+case_actions
+```
+
+Exemplo:
+
+```text
+☑ Conferir documento
+☑ Validar enquadramento
+☐ Reunir documentação
+☐ Revisar defesa
+☐ Protocolar
+```
+
+Cada ação deve possuir:
+
+* responsável
+* prazo
+* prioridade
+* status
+* data de conclusão
+
+---
+
+# 22. ALTA REGULATÓRIA
+
+Um caso não deve ser encerrado simplesmente mudando:
+
+```text
+status = CLOSED
+```
+
+Criar checklist de alta:
+
+```text
+situação final registrada
+decisão/documento anexado
+valor final atualizado
+obrigações cumpridas
+prazos encerrados
+responsável confirmou
+histórico completo
+```
+
+Somente depois permitir:
+
+```text
+CLOSED
+```
+
+---
+
+# 23. DASHBOARD EXECUTIVO
+
+Criar uma Central Executiva.
+
+Mostrar:
+
+```text
+Risco regulatório
+Exposição financeira
+Casos críticos
+Casos em tratamento
+Prazos próximos
+Prazos vencidos
+Casos encerrados
+Tendências
+Alterações legislativas
+```
+
+Não exagerar nos gráficos.
+
+O presidente precisa entender a situação rapidamente.
+
+---
+
+# 24. DASHBOARD OPERACIONAL
+
+Mostrar:
+
+```text
+Minha fila
+Ações de hoje
+Prazos críticos
+Documentos pendentes
+Casos aguardando decisão
+Casos aguardando documentos
+```
+
+---
+
+# 25. ÍNDICE DE MATURIDADE REGULATÓRIA
+
+Criar:
+
+```text
+Regulatory Score
+```
+
+Exemplo:
+
+```text
+78 / 100
+```
+
+Componentes:
+
+```text
+Gestão de prazos
+Documentação
+CIOT
+Piso mínimo
+Processos
+Reincidência
+Prevenção
+```
+
+Não apresentar esse índice como certificação oficial.
+
+É apenas um indicador interno do sistema.
+
+---
+
+# 26. PREVENÇÃO
+
+Criar análise de causa.
+
+Categorias:
+
+```text
+OPERATIONAL_FAILURE
+DOCUMENT_FAILURE
+PROCESS_FAILURE
+HUMAN_FAILURE
+SYSTEM_FAILURE
+THIRD_PARTY
+UNKNOWN
+```
+
+Relacionar:
+
+```text
+multa
+→ causa
+→ ação corretiva
+→ prevenção
+```
+
+Objetivo:
+
+> transformar multas anteriores em aprendizado operacional.
+
+---
+
+# 27. NOTIFICAÇÕES
+
+Criar:
+
+```text
+notifications
+```
+
+Tipos:
+
+```text
+DEADLINE_APPROACHING
+DEADLINE_EXPIRED
+NEW_CASE
+RISK_CHANGED
+DOCUMENT_REQUIRED
+LEGAL_CHANGE
+IMPACT_DETECTED
+ACTION_REQUIRED
+```
+
+Preparar arquitetura para:
+
+* push
+* e-mail
+* futuramente WhatsApp
+
+---
+
+# 28. AUDITORIA
+
+Criar:
+
+```text
+audit_logs
+```
+
+Registrar:
+
+```text
+user_id
+organization_id
+action
+entity
+entity_id
+old_value
+new_value
+ip
+user_agent
+created_at
+```
+
+Não registrar informações sensíveis desnecessárias.
+
+A auditoria deve ser somente acrescentada, nunca apagada pelo usuário comum.
+
+---
+
+# 29. PERFIS
+
+Implementar RBAC.
+
+### PRESIDENT
+
+Dashboard executivo.
+
+### DIRECTOR
+
+Dashboard + gestão.
+
+### OPERATOR
+
+Casos, documentos e tarefas.
+
+### LEGAL
+
+Casos, legislação, documentos e análise.
+
+### ADMIN
+
+Usuários, permissões e configurações.
+
+As permissões devem ser granulares.
+
+Exemplo:
+
+```text
+cases.read
+cases.create
+cases.update
+cases.close
+documents.read
+documents.upload
+legislation.read
+legislation.manage
+risk.read
+risk.manage
+reports.read
+users.manage
+audit.read
+```
+
+---
+
+# 30. TELAS
+
+Criar inicialmente:
+
+### Autenticação
+
+* Login
+* Recuperar senha
+* Primeiro acesso
+
+### Central
+
+* Dashboard executivo
+* Dashboard operacional
+
+### Prontuários
+
+* Lista
+* Filtros
+* Criar ocorrência
+* Prontuário
+* Timeline
+* Documentos
+* Prazos
+* Análise
+* Legislação relacionada
+* Auditoria
+
+### Tarefas
+
+* Minha fila
+* Todas as tarefas
+
+### Legislação
+
+* Biblioteca
+* Norma
+* Artigos
+* Histórico
+
+### Radar
+
+* Novidades
+* Impactos
+
+### Inteligência
+
+* Tendências
+* Reincidência
+* Prevenção
+* Regulatory Score
+
+### Administração
+
+* Organização
+* Usuários
+* Perfis
+* Configurações
+
+---
+
+# 31. EXPERIÊNCIA MOBILE
+
+O mobile deve priorizar:
+
+```text
+Alertas
+Prazos
+Prontuários
+Documentos
+Ações
+Timeline
+```
+
+O usuário deve conseguir:
+
+* fotografar documento
+* anexar documento
+* consultar uma ocorrência
+* concluir tarefa
+* receber alerta
+* visualizar prazo
+
+com poucos toques.
+
+---
+
+# 32. EXPERIÊNCIA WEB
+
+Web será priorizada para:
+
+* administração
+* análise
+* dashboard
+* legislação
+* relatórios
+* gestão de documentos
+* análise de risco
+
+---
+
+# 33. DESIGN
+
+Criar uma interface:
+
+* moderna
+* profissional
+* clara
+* executiva
+* limpa
+* acessível
+
+Evitar interface excessivamente escura.
+
+Usar contraste adequado.
+
+Não utilizar excesso de animações.
+
+A interface deve transmitir:
+
+**controle + segurança + confiança + organização.**
+
+---
+
+# 34. DESIGN SYSTEM
+
+Criar tokens para:
+
+```text
+spacing
+typography
+radius
+elevation
+colors
+status
+risk
+components
+```
+
+Componentes principais:
+
+```text
+Button
+Input
+Select
+Modal
+Card
+Badge
+StatusBadge
+RiskBadge
+Timeline
+DeadlineCard
+DocumentCard
+CaseCard
+MetricCard
+AlertCard
+EmptyState
+LoadingState
+ErrorState
+```
+
+---
+
+# 35. BANCO DE DADOS INICIAL
+
+Criar migrations para:
+
+```text
+organizations
+users
+organization_members
+roles
+permissions
+role_permissions
+
+regulatory_cases
+case_status_history
+case_events
+case_actions
+case_deadlines
+case_documents
+document_versions
+case_notes
+case_decisions
+case_relationships
+
+legal_documents
+legal_versions
+legal_articles
+legal_sources
+regulatory_changes
+
+risk_assessments
+risk_factors
+
+notifications
+
+audit_logs
+
+ai_extractions
+ai_analyses
+```
+
+Adicionar:
+
+```text
+created_at
+updated_at
+```
+
+onde aplicável.
+
+Utilizar UUID ou identificadores seguros.
+
+Criar índices adequados.
+
+Criar foreign keys.
+
+Criar constraints.
+
+Evitar dados duplicados.
+
+---
+
+# 36. API
+
+Criar REST API versionada:
+
+```text
+/api/v1
+```
+
+Endpoints iniciais:
+
+```text
+GET    /health
+
+GET    /api/v1/dashboard
+
+GET    /api/v1/cases
+POST   /api/v1/cases
+GET    /api/v1/cases/{id}
+PATCH  /api/v1/cases/{id}
+
+GET    /api/v1/cases/{id}/timeline
+GET    /api/v1/cases/{id}/documents
+POST   /api/v1/cases/{id}/documents
+
+GET    /api/v1/cases/{id}/deadlines
+POST   /api/v1/cases/{id}/actions
+
+GET    /api/v1/legislation
+GET    /api/v1/legislation/{id}
+
+GET    /api/v1/radar
+GET    /api/v1/notifications
+
+GET    /api/v1/audit
+```
+
+Documentar API.
+
+---
+
+# 37. EVENTOS
+
+Preparar arquitetura para:
+
+```text
+CASE_CREATED
+CASE_UPDATED
+CASE_STATUS_CHANGED
+DOCUMENT_ADDED
+DEADLINE_CREATED
+DEADLINE_APPROACHING
+DEADLINE_EXPIRED
+RISK_CHANGED
+LEGAL_DOCUMENT_UPDATED
+REGULATORY_IMPACT_DETECTED
+CASE_CLOSED
+```
+
+Utilizar padrão Outbox quando eventos persistentes forem implementados.
+
+---
+
+# 38. SEGURANÇA
+
+Implementar:
+
+* autenticação segura
+* autorização por organização
+* RBAC
+* validação de input
+* rate limiting
+* proteção contra SQL injection
+* proteção contra upload malicioso
+* limite de tamanho de arquivos
+* validação de MIME type
+* logs
+* auditoria
+* secrets via environment
+* HTTPS em produção
+
+Nunca colocar:
+
+* API keys
+* senhas
+* secrets
+
+no código-fonte.
+
+---
+
+# 39. LGPD
+
+Projetar considerando LGPD.
+
+Minimizar dados pessoais.
+
+Permitir controle de acesso.
+
+Evitar exposição desnecessária de CPF e dados de motoristas.
+
+Não utilizar dados pessoais para finalidades não relacionadas ao sistema.
+
+---
+
+# 40. TESTES
+
+Antes de considerar uma feature concluída:
+
+```text
+unit tests
+integration tests
+API tests
+database tests
+authorization tests
+workflow tests
+deadline tests
+risk tests
+tenant isolation tests
+```
+
+Testar especialmente:
+
+### Tenant isolation
+
+Usuário da empresa A nunca pode consultar empresa B.
+
+### Workflow
+
+Não permitir transições inválidas.
+
+### Deadline
+
+Não gerar prazo incorreto silenciosamente.
+
+### Audit
+
+Toda mudança crítica gera histórico.
+
+---
+
+# 41. SEED
+
+Criar dados de demonstração:
+
+```text
+1 organização
+3 usuários
+10 ocorrências
+diferentes níveis de risco
+prazos
+documentos fictícios
+legislação fictícia claramente marcada como DEMO
+eventos
+```
+
+Nunca utilizar documentos reais de terceiros.
+
+---
+
+# 42. MVP
+
+O primeiro release deve conter:
+
+### CORE
+
+* autenticação
+* organização
+* usuários
+* RBAC
+
+### PRONTUÁRIO
+
+* criação
+* edição
+* timeline
+* status
+* risco
+* documentos
+* prazos
+* tarefas
+* encerramento
+
+### EXECUTIVO
+
+* dashboard
+* indicadores
+* alertas
+
+### LEGISLAÇÃO
+
+* biblioteca
+* associação ao caso
+
+### IA
+
+* arquitetura preparada
+* extração inicial de documentos
+* resumo inicial
+
+### RADAR
+
+* estrutura inicial
+* cadastro/importação de alterações regulatórias
+* impacto manual/semiautomático
+
+---
+
+# 43. O QUE NÃO FAZER NO MVP
+
+Não criar:
+
+* gestão de frota
+* manutenção
+* pneus
+* combustível
+* roteirização
+* financeiro completo
+* TMS
+* cadastro complexo de motoristas
+* integração com dezenas de órgãos
+* automação jurídica completa
+
+O foco é:
+
+**RISCO REGULATÓRIO ANTT.**
+
+---
+
+# 44. ROADMAP
+
+### V1
+
+Prontuário + prazos + documentos + risco.
+
+### V2
+
+IA + legislação + reincidência.
+
+### V3
+
+Radar regulatório + prevenção.
+
+### V4
+
+Integrações externas.
+
+### V5
+
+Outros órgãos reguladores.
+
+---
+
+# 45. REGRA DE DESENVOLVIMENTO
+
+Não criar centenas de arquivos sem necessidade.
+
+Não criar abstrações prematuras.
+
+Não implementar funcionalidades fictícias apenas para preencher telas.
+
+Quando uma integração externa não estiver disponível:
+
+```text
+interface
++
+mock
++
+TODO documentado
+```
+
+Nunca fingir que uma integração está funcionando.
+
+---
+
+# 46. DOCUMENTAÇÃO OBRIGATÓRIA
+
+Criar:
+
+```text
+README.md
+
+docs/
+  architecture.md
+  domain-model.md
+  api.md
+  database.md
+  security.md
+  regulatory-engine.md
+  ai.md
+  roadmap.md
+```
+
+Também criar:
+
+```text
+.env.example
+docker-compose.yml
+```
+
+---
+
+# 47. FONTE REGULATÓRIA
+
+Para regras ANTT, utilizar prioritariamente fontes oficiais.
+
+Nunca inventar:
+
+* artigos
+* prazos
+* multas
+* valores
+* penalidades
+* vigências
+
+Quando uma regra não puder ser confirmada:
+
+```text
+NOT_VERIFIED
+```
+
+O sistema deve deixar explícito que precisa de validação.
+
+---
+
+# 48. REGRA CRÍTICA
+
+O sistema NÃO deve afirmar que uma pessoa ou empresa está juridicamente em situação de reincidência apenas porque encontrou casos semelhantes.
+
+Usar:
+
+> "Possível ocorrência relacionada."
+
+A conclusão jurídica deve permanecer com o responsável.
+
+---
+
+# 49. PRIMEIRA ENTREGA
+
+Antes de implementar todas as funcionalidades, faça nesta ordem:
+
+### FASE 1
+
+Analisar requisitos.
+
+### FASE 2
+
+Criar arquitetura.
+
+### FASE 3
+
+Criar estrutura do monorepo.
+
+### FASE 4
+
+Criar banco Neon e migrations.
+
+### FASE 5
+
+Criar backend Ktor.
+
+### FASE 6
+
+Criar autenticação/RBAC.
+
+### FASE 7
+
+Criar domínio Regulatory Case.
+
+### FASE 8
+
+Criar timeline/eventos.
+
+### FASE 9
+
+Criar documentos.
+
+### FASE 10
+
+Criar prazos.
+
+### FASE 11
+
+Criar Risk Engine.
+
+### FASE 12
+
+Criar frontend.
+
+### FASE 13
+
+Criar dashboard.
+
+### FASE 14
+
+Criar legislação.
+
+### FASE 15
+
+Criar IA.
+
+### FASE 16
+
+Criar Radar.
+
+### FASE 17
+
+Testes completos.
+
+### FASE 18
+
+Docker/deploy.
+
+---
+
+# 50. REGRA FINAL PARA O AGENTE
+
+Antes de alterar código:
+
+1. Inspecione a estrutura atual.
+2. Identifique tecnologias existentes.
+3. Não apague funcionalidades existentes sem justificativa.
+4. Não invente integrações.
+5. Não invente legislação.
+6. Não invente dados.
+7. Não coloque secrets no código.
+8. Faça migrations versionadas.
+9. Escreva testes.
+10. Documente decisões arquiteturais importantes.
+
+Sempre que houver dúvida entre:
+
+**fazer rápido**
+
+e
+
+**criar uma base correta e extensível**
+
+priorize a base correta, mas evite overengineering.
+
+---
+
+# RESULTADO ESPERADO
+
+Ao final do MVP deve existir um SaaS funcional onde uma transportadora consegue:
+
+```text
+CRIAR EMPRESA
+      ↓
+RECEBER AUTO
+      ↓
+ANEXAR DOCUMENTO
+      ↓
+EXTRAIR DADOS
+      ↓
+CONFIRMAR
+      ↓
+CRIAR PRONTUÁRIO
+      ↓
+CLASSIFICAR RISCO
+      ↓
+IDENTIFICAR LEGISLAÇÃO
+      ↓
+CRIAR PRAZOS
+      ↓
+CRIAR AÇÕES
+      ↓
+ACOMPANHAR TIMELINE
+      ↓
+RECEBER ALERTAS
+      ↓
+REGISTRAR DECISÃO
+      ↓
+DAR ALTA
+      ↓
+GERAR HISTÓRICO
+      ↓
+ANALISAR PREVENÇÃO
+```
+
+O produto deve transmitir ao usuário a sensação de:
+
+> **"Eu sei exatamente o que está acontecendo com cada ocorrência e o que precisa ser feito agora."**
+
+Esse é o objetivo principal do ANTT Control.
