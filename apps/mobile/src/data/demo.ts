@@ -24,6 +24,9 @@ export type RegulatoryCase = {
   deadlines: Array<{ id: string; type: string; dueDate: string; daysLeft: number; status: "PENDING" | "COMPLETED" | "EXPIRED"; basis: string }>;
   actions: Array<{ id: string; title: string; priority: "HIGH" | "MEDIUM" | "LOW"; status: "PENDING" | "IN_PROGRESS" | "DONE"; dueDate: string }>;
   documents: Array<{ id: string; name: string; type: string; version: number; storageKey: string }>;
+  notes: Array<{ id: string; body: string; author: string; createdAt: string }>;
+  decisions: Array<{ id: string; type: string; date: string; finalAmount: number; notes: string }>;
+  aiExtractions: Array<{ id: string; provider: string; status: string; documentName: string; extractedData: Record<string, unknown>; confirmedAt?: string }>;
   timeline: Array<{ id: string; date: string; title: string; description: string; user: string }>;
 };
 
@@ -58,6 +61,9 @@ export const cases: RegulatoryCase[] = [
       { id: "ac-2", title: "Validar enquadramento legal", priority: "HIGH", status: "IN_PROGRESS", dueDate: "2026-08-29" }
     ],
     documents: [{ id: "doc-1", name: "auto-infracao-demo.pdf", type: "AUTO_INFRINGEMENT", version: 1, storageKey: "demo/org-demo/case-001/auto.pdf" }],
+    notes: [],
+    decisions: [],
+    aiExtractions: [],
     timeline: [
       { id: "ev-1", date: "14/08 09:15", title: "Auto recebido", description: "Documento registrado no prontuario.", user: "Maria Souza" },
       { id: "ev-2", date: "15/08 09:10", title: "Risco calculado", description: `Score ${riskOne}/100. Analise automatica de apoio.`, user: "RiskEngine" }
@@ -83,6 +89,9 @@ export const cases: RegulatoryCase[] = [
     deadlines: [{ id: "dl-2", type: "Recurso administrativo", dueDate: "2026-09-07", daysLeft: 9, status: "PENDING", basis: "NOT_VERIFIED" }],
     actions: [{ id: "ac-3", title: "Anexar comprovantes da operacao", priority: "MEDIUM", status: "PENDING", dueDate: "2026-08-30" }],
     documents: [],
+    notes: [],
+    decisions: [],
+    aiExtractions: [],
     timeline: [{ id: "ev-3", date: "30/07 14:00", title: "Prontuario criado", description: "Caso aberto para analise operacional.", user: "Carlos Oliveira" }]
   },
   {
@@ -104,6 +113,9 @@ export const cases: RegulatoryCase[] = [
     deadlines: [{ id: "dl-3", type: "Monitorar decisao", dueDate: "2026-09-13", daysLeft: 15, status: "PENDING", basis: "NOT_VERIFIED" }],
     actions: [{ id: "ac-4", title: "Monitorar publicacao oficial", priority: "LOW", status: "IN_PROGRESS", dueDate: "2026-09-13" }],
     documents: [{ id: "doc-2", name: "defesa-demo.pdf", type: "DEFENSE", version: 1, storageKey: "demo/org-demo/case-003/defesa.pdf" }],
+    notes: [],
+    decisions: [],
+    aiExtractions: [],
     timeline: [{ id: "ev-4", date: "18/06 14:20", title: "Triagem", description: "Categoria Documentacao / MDF-e.", user: "Ana Lima" }]
   }
 ];

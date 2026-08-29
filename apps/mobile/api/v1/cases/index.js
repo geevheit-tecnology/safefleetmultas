@@ -84,6 +84,13 @@ async function createCase(req, res) {
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_CREATED', 'Prontuario criado pelo formulario web.')",
         [orgId, created.rows[0].id]
       );
+      await client.query(
+        `
+        insert into case_actions (organization_id, case_id, title, priority, status, due_date)
+        values ($1, $2, 'Conferir dados do auto e documentos obrigatorios', 'HIGH', 'PENDING', current_date + interval '2 days')
+        `,
+        [orgId, created.rows[0].id]
+      );
       await client.query("commit");
       sendJson(res, 201, mapCase({ ...created.rows[0], responsible_name: "Nao definido" }));
     } catch (error) {

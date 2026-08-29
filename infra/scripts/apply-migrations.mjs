@@ -26,7 +26,11 @@ const client = new Client({
 await client.connect();
 
 try {
-  for (const migration of ["database/migrations/001_initial_schema.sql", "database/migrations/002_demo_seed.sql"]) {
+  const migrations = process.env.MIGRATION_FILES
+    ? process.env.MIGRATION_FILES.split(",").map((item) => item.trim()).filter(Boolean)
+    : ["database/migrations/001_initial_schema.sql", "database/migrations/002_demo_seed.sql", "database/migrations/003_regulatory_demo_seed.sql"];
+
+  for (const migration of migrations) {
     console.log(`Aplicando ${migration}`);
     const sql = await readFile(migration, "utf8");
     await client.query(sql);

@@ -6,7 +6,8 @@ module.exports = async function handler(req, res) {
 
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
-    const result = await client.query(
+    const [result, deadlineResult] = await Promise.all([
+      client.query(
       `
       select
         count(*) filter (where status <> 'CLOSED')::int as "activeCases",
@@ -15,13 +16,22 @@ module.exports = async function handler(req, res) {
       from regulatory_cases
       where organization_id = $1
       `,
-      [orgId]
-    );
+        [orgId]
+      ),
+      client.query(
+        `
+        select count(*) filter (where status = 'PENDING' and due_date between current_date and current_date + interval '15 days')::int as "upcomingDeadlines"
+        from case_deadlines
+        where organization_id = $1
+        `,
+        [orgId]
+      )
+    ]);
     sendJson(res, 200, {
       organizationName: "Transportadora Demo",
       regulatoryScore: 72,
       ...result.rows[0],
-      upcomingDeadlines: 1
+      upcomingDeadlines: deadlineResult.rows[0].upcomingDeadlines
     });
   });
 };
