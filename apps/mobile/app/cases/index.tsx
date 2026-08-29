@@ -1,12 +1,20 @@
 import { Link } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { listCases } from "../../src/api/client";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
-import { cases } from "../../src/data/demo";
+import { cases as demoCases, type RegulatoryCase } from "../../src/data/demo";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function CasesScreen() {
+  const [cases, setCases] = useState<RegulatoryCase[]>(demoCases);
+
+  useEffect(() => {
+    void listCases().then((items) => setCases(items.length > 0 ? items : demoCases));
+  }, []);
+
   return (
     <AppShell title="Prontuarios" subtitle="Autos e ocorrencias tratados como prontuario regulatorio">
       <View style={styles.metrics}>

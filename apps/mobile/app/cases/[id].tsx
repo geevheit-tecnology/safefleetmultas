@@ -1,6 +1,8 @@
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { cases } from "../../src/data/demo";
+import { getCase } from "../../src/api/client";
+import { cases, type RegulatoryCase } from "../../src/data/demo";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
 
@@ -8,7 +10,14 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 
 export default function CaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const item = cases.find((caseItem) => caseItem.id === id) ?? cases[0];
+  const [item, setItem] = useState<RegulatoryCase>(cases.find((caseItem) => caseItem.id === id) ?? cases[0]);
+
+  useEffect(() => {
+    if (!id) return;
+    void getCase(id).then((loaded) => {
+      if (loaded) setItem(loaded);
+    });
+  }, [id]);
 
   return (
     <AppShell title={item.caseNumber} subtitle={`${item.category} · ${item.subcategory}`}>

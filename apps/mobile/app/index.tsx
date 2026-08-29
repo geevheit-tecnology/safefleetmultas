@@ -1,13 +1,25 @@
 import { Link } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { getDashboard, listCases } from "../src/api/client";
 import { AppShell } from "../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
-import { cases, dashboard } from "../src/data/demo";
+import { cases as demoCases, dashboard as demoDashboard, type RegulatoryCase } from "../src/data/demo";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function DashboardScreen() {
+  const [cases, setCases] = useState<RegulatoryCase[]>(demoCases);
+  const [dashboard, setDashboard] = useState(demoDashboard);
+
+  useEffect(() => {
+    void Promise.all([listCases(), getDashboard()]).then(([caseItems, metrics]) => {
+      setCases(caseItems.length > 0 ? caseItems : demoCases);
+      setDashboard({ ...demoDashboard, ...metrics });
+    });
+  }, []);
+
   const criticalCases = cases.filter((item) => item.riskLevel === "CRITICAL");
   const deadlines = cases.flatMap((item) => item.deadlines.map((deadline) => ({ ...deadline, caseNumber: item.caseNumber })));
 
