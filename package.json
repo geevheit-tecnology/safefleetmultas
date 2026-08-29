@@ -1,0 +1,24 @@
+{
+  "name": "antt-control",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SaaS web e mobile para gestao de risco regulatorio ANTT.",
+  "workspaces": [
+    "apps/mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace apps/mobile run dev",
+    "web": "npm --workspace apps/mobile run web",
+    "android": "npm --workspace apps/mobile run android",
+    "ios": "npm --workspace apps/mobile run ios",
+    "test": "npm --workspaces --if-present test",
+    "typecheck": "cd apps/mobile && npx tsc --noEmit",
+    "web:export": "cd apps/mobile && npx expo export --platform web --clear",
+    "backend:test": "cd backend/api && ./gradlew test",
+    "db:migrate": "node infra/scripts/apply-migrations.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

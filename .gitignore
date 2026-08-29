@@ -1,0 +1,11 @@
+node_modules
+.expo
+apps/mobile/.expo
+dist
+apps/mobile/dist
+build
+.gradle
+backend/api/.gradle
+backend/api/build
+.env
+*.local

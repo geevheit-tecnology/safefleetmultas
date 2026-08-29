@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "ANTT Control",
+    "slug": "antt-control",
+    "scheme": "anttcontrol",
+    "platforms": ["ios", "android", "web"],
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router"]
+  }
+}
