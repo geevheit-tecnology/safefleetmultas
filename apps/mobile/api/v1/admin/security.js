@@ -1,4 +1,6 @@
 const { organizationId, sendJson, withClient } = require("../../_db");
+const { ACTION_PERMISSIONS, authorize } = require("../../_authz");
+const { maskEmail, privacyNotice } = require("../../_privacy");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
@@ -6,6 +8,8 @@ module.exports = async function handler(req, res) {
 
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.manage_users);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const [org, users, roles, permissions, audit] = await Promise.all([
       client.query("select id, name, coalesce(document, '') as document from organizations where id = $1", [orgId]),
       client.query(
@@ -74,14 +78,9 @@ module.exports = async function handler(req, res) {
         tenantIsolation: "X-Organization-Id + organization_members",
         mutationAudit: "audit_logs append-only + case_events/status history",
         deploymentProtection: "public preview authorized",
-        productionAuth: "pending external identity provider"
+        productionAuth: "pending external identity provider",
+        privacy: privacyNotice()
       }
     });
   });
 };
-
-function maskEmail(email) {
-  const [name, domain] = String(email || "").split("@");
-  if (!name || !domain) return "nao informado";
-  return `${name.slice(0, 2)}***@${domain}`;
-}

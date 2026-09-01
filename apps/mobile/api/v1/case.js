@@ -1,6 +1,9 @@
 const { organizationId, sendJson, withClient } = require("../_db");
 const { recordAuditLog } = require("../_auditLogger");
+const { ACTION_PERMISSIONS, authorize } = require("../_authz");
 const { classifyDeadlineAlert } = require("../_deadlineEngine");
+const { recordOutboxEvent } = require("../_events");
+const { minimizePersonName } = require("../_privacy");
 
 const allowedTransitions = {
   RECEIVED: ["TRIAGE"],
@@ -17,6 +20,8 @@ const allowedTransitions = {
 };
 
 const allowedRelationshipTypes = new Set(["POSSIBLE_REPETITION", "RELATED_CASE"]);
+const allowedDocumentMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+const maxDocumentSizeBytes = 15 * 1024 * 1024;
 const preventionCategories = new Set([
   "OPERATIONAL_FAILURE",
   "DOCUMENT_FAILURE",
@@ -79,6 +84,8 @@ async function getCase(req, res) {
   if (!id) return sendJson(res, 400, { error: "missing_case_id" });
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, organizationId(req), ACTION_PERMISSIONS.read_case);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const payload = await loadCase(client, organizationId(req), id);
     if (!payload) return sendJson(res, 404, { error: "not_found" });
     sendJson(res, 200, payload);
@@ -97,6 +104,9 @@ async function updateStatus(req, res) {
   }
 
   await withClient(res, async (client) => {
+    const permission = nextStatus === "CLOSED" ? ACTION_PERMISSIONS.close_case : ACTION_PERMISSIONS.update_case;
+    const authz = await authorize(client, req, orgId, permission);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     await client.query("begin");
     try {
       const current = await client.query(
@@ -138,8 +148,15 @@ async function updateStatus(req, res) {
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'STATUS_CHANGED', $3)",
         [orgId, id, `Status alterado de ${oldStatus} para ${nextStatus}. ${reason}`]
       );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: id,
+        eventType: nextStatus === "CLOSED" ? "CASE_CLOSED" : "CASE_STATUS_CHANGED",
+        payload: { oldStatus, nextStatus, reason }
+      });
       await recordAuditLog(client, req, {
         organizationId: orgId,
+        userId: authz.userId,
         action: "STATUS_CHANGED",
         entity: "regulatory_cases",
         entityId: id,
@@ -159,6 +176,18 @@ async function updateStatus(req, res) {
 
 async function handleCaseAction(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const requiredPermission = permissionForCaseAction(body.action);
+  if (requiredPermission) {
+    let blocked = false;
+    await withClient(res, async (client) => {
+      const authz = await authorize(client, req, organizationId(req), requiredPermission);
+      if (!authz.ok) {
+        blocked = true;
+        return sendJson(res, authz.status, { error: authz.error, message: authz.message });
+      }
+    });
+    if (blocked) return;
+  }
   if (body.action === "create_deadline") return createDeadline(req, res, body);
   if (body.action === "complete_deadline") return completeDeadline(req, res, body);
   if (body.action === "create_action") return createAction(req, res, body);
@@ -172,6 +201,15 @@ async function handleCaseAction(req, res) {
   if (body.action === "suggest_relationships") return suggestRelationships(req, res, body);
   if (body.action === "validate_relationship") return validateRelationship(req, res, body);
   return sendJson(res, 400, { error: "unknown_action" });
+}
+
+function permissionForCaseAction(action) {
+  if (action === "attach_document" || action === "prepare_extraction" || action === "confirm_extraction") return ACTION_PERMISSIONS.upload_document;
+  if (action === "suggest_relationships") return ACTION_PERMISSIONS.read_risk;
+  if (action === "validate_relationship") return ACTION_PERMISSIONS.manage_risk;
+  if (action === "confirm_closure") return ACTION_PERMISSIONS.close_case;
+  if (action === "create_deadline" || action === "complete_deadline" || action === "create_action" || action === "create_prevention" || action === "add_note" || action === "register_decision") return ACTION_PERMISSIONS.update_case;
+  return null;
 }
 
 async function createPrevention(req, res, body) {
@@ -381,14 +419,20 @@ async function createDeadline(req, res, body) {
         return sendJson(res, 404, { error: "not_found" });
       }
 
-      await client.query(
-        "insert into case_deadlines (organization_id, case_id, deadline_type, start_event, legal_basis, duration, due_date, status) values ($1, $2, $3, $4, $5, nullif($6, 0), $7::date, 'PENDING')",
+      const deadline = await client.query(
+        "insert into case_deadlines (organization_id, case_id, deadline_type, start_event, legal_basis, duration, due_date, status) values ($1, $2, $3, $4, $5, nullif($6, 0), $7::date, 'PENDING') returning id",
         [orgId, caseId, type, startEvent, basis, duration, dueDate]
       );
       await client.query(
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'DEADLINE_CREATED', $3)",
         [orgId, caseId, `Prazo "${type}" criado para ${dueDate} com base ${basis}.`]
       );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: caseId,
+        eventType: "DEADLINE_CREATED",
+        payload: { deadlineId: deadline.rows[0].id, type, dueDate, basis }
+      });
       await recordAuditLog(client, req, {
         organizationId: orgId,
         action: "DEADLINE_CREATED",
@@ -517,6 +561,15 @@ async function attachDocument(req, res, body) {
   if (!caseId || !name || !documentType || !sha256 || !storageKey || sizeBytes < 0) {
     return sendJson(res, 400, { error: "validation_error", message: "Prontuario, nome, tipo, hash e storage key sao obrigatorios." });
   }
+  if (!allowedDocumentMimeTypes.has(mimeType)) {
+    return sendJson(res, 400, { error: "invalid_mime_type", message: "Tipo de arquivo nao permitido." });
+  }
+  if (sizeBytes > maxDocumentSizeBytes) {
+    return sendJson(res, 413, { error: "document_too_large", message: "Documento excede 15MB." });
+  }
+  if (!/^[a-f0-9]{64}$/i.test(sha256)) {
+    return sendJson(res, 400, { error: "invalid_hash", message: "Hash SHA-256 invalido." });
+  }
 
   await withClient(res, async (client) => {
     await client.query("begin");
@@ -543,6 +596,12 @@ async function attachDocument(req, res, body) {
         "insert into case_events (organization_id, case_id, action, description, document_id) values ($1, $2, 'DOCUMENT_ATTACHED', $3, $4)",
         [orgId, caseId, `Documento "${name}" anexado como ${documentType}.`, document.rows[0].id]
       );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: caseId,
+        eventType: "DOCUMENT_ADDED",
+        payload: { documentId: document.rows[0].id, documentType, mimeType, sizeBytes }
+      });
       await recordAuditLog(client, req, {
         organizationId: orgId,
         action: "DOCUMENT_ATTACHED",
@@ -827,7 +886,7 @@ async function loadCase(client, orgId, id) {
     riskScore: row.risk_score,
     riskLevel: row.risk_level,
     vehiclePlate: row.vehicle_plate,
-    driverName: row.driver_name,
+    driverName: minimizePersonName(row.driver_name),
     rntrc: row.rntrc,
     location: row.location,
     authority: row.authority,

@@ -1,6 +1,7 @@
 import { Link } from "expo-router";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { tokens } from "../src/ui/tokens";
 
 export default function LoginScreen() {
   return (
@@ -37,18 +38,18 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#f5f7fb", alignItems: "center", justifyContent: "center", padding: 20 },
-  panel: { width: "100%", maxWidth: 420, backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e4e7ec", padding: 22, gap: 14 },
+  page: { flex: 1, backgroundColor: tokens.colors.background, alignItems: "center", justifyContent: "center", padding: 20 },
+  panel: { width: "100%", maxWidth: 420, backgroundColor: tokens.colors.surface, borderRadius: tokens.radius.md, borderWidth: 1, borderColor: tokens.colors.border, padding: 22, gap: 14 },
   brand: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 },
-  logo: { width: 42, height: 42, borderRadius: 8, backgroundColor: "#10243f", alignItems: "center", justifyContent: "center" },
-  title: { color: "#101828", fontSize: 24, fontWeight: "900" },
-  subtitle: { color: "#667085", fontSize: 13 },
+  logo: { width: 42, height: 42, borderRadius: tokens.radius.md, backgroundColor: tokens.colors.brand, alignItems: "center", justifyContent: "center" },
+  title: { color: tokens.colors.text, fontSize: tokens.typography.title, fontWeight: "900" },
+  subtitle: { color: tokens.colors.muted, fontSize: 13 },
   field: { gap: 6 },
   label: { color: "#344054", fontWeight: "800", fontSize: 12 },
-  input: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, height: 44, paddingHorizontal: 12, color: "#101828" },
-  button: { backgroundColor: "#10243f", borderRadius: 8, paddingVertical: 13, textDecorationLine: "none", alignItems: "center" },
+  input: { borderWidth: 1, borderColor: tokens.colors.borderStrong, borderRadius: tokens.radius.md, height: 44, paddingHorizontal: 12, color: tokens.colors.text },
+  button: { backgroundColor: tokens.colors.brand, borderRadius: tokens.radius.md, paddingVertical: 13, textDecorationLine: "none", alignItems: "center" },
   buttonText: { color: "#fff", fontWeight: "900", textAlign: "center" },
   links: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  link: { color: "#175cd3", fontWeight: "800", textDecorationLine: "none" },
-  note: { color: "#667085", fontSize: 12, lineHeight: 18 }
+  link: { color: tokens.colors.primary, fontWeight: "800", textDecorationLine: "none" },
+  note: { color: tokens.colors.muted, fontSize: 12, lineHeight: 18 }
 });

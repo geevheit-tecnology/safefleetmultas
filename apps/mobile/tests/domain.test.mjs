@@ -7,8 +7,11 @@ const workflowSource = readFileSync(new URL("../src/domain/workflow.ts", import.
 const require = createRequire(import.meta.url);
 const { assertSafeAiAnalysis, buildCaseSupportAnalysis } = require("../api/_aiProvider.js");
 const { sanitizeAuditValue } = require("../api/_auditLogger.js");
+const { ACTION_PERMISSIONS, DEMO_ADMIN_USER_ID, authorize } = require("../api/_authz.js");
 const { classifyDeadlineAlert, describeDeadlineAlert } = require("../api/_deadlineEngine.js");
+const { recordOutboxEvent } = require("../api/_events.js");
 const { buildChannelPlan, notificationChannels, notificationTypes } = require("../api/_notificationEngine.js");
+const { maskDocument, maskEmail, minimizePersonName, privacyNotice } = require("../api/_privacy.js");
 const { calculateRegulatoryScore, scoreComponentKeys } = require("../api/_regulatoryScoreEngine.js");
 const { calculateRiskAssessment, classifyRisk, riskThresholds } = require("../api/_riskEngine.js");
 
@@ -62,5 +65,42 @@ assert.deepEqual(sanitizeAuditValue({ action: "ok", token: "secret", storageKey:
   action: "ok",
   long: `${"x".repeat(160)}...`
 });
+assert.equal(DEMO_ADMIN_USER_ID, "00000000-0000-0000-0000-000000000104");
+assert.equal(ACTION_PERMISSIONS.create_case, "cases.create");
+assert.equal(ACTION_PERMISSIONS.close_case, "cases.close");
+assert.equal(ACTION_PERMISSIONS.manage_users, "users.manage");
+assert.equal(ACTION_PERMISSIONS.read_reports, "reports.read");
+assert.equal(maskEmail("operador@demo.local"), "op***@demo.local");
+assert.equal(minimizePersonName("Jose Carlos Mendes"), "Jose M.");
+assert.equal(maskDocument("123.456.789-09"), "123***09");
+assert.match(privacyNotice(), /LGPD/);
+
+const authorized = await authorize(
+  {
+    query: async (_sql, params) => ({
+      rowCount: params[2] === "cases.read" ? 1 : 0,
+      rows: params[2] === "cases.read" ? [{ role: "OPERATOR", permission: "cases.read" }] : []
+    })
+  },
+  { headers: { "x-user-id": "user-demo" } },
+  "org-demo",
+  "cases.read"
+);
+assert.equal(authorized.ok, true);
+const forbidden = await authorize(
+  { query: async () => ({ rowCount: 0, rows: [] }) },
+  { headers: { "x-user-id": "user-demo" } },
+  "org-demo",
+  "users.manage"
+);
+assert.equal(forbidden.status, 403);
+
+const outboxCalls = [];
+await recordOutboxEvent(
+  { query: async (sql, params) => outboxCalls.push({ sql, params }) },
+  { organizationId: "org-demo", aggregateId: "case-demo", eventType: "CASE_CREATED", payload: { caseNumber: "AC-DEMO" } }
+);
+assert.equal(outboxCalls[0].params[3], "CASE_CREATED");
+assert.match(outboxCalls[0].params[4], /AC-DEMO/);
 
 console.log("domain smoke tests passed");

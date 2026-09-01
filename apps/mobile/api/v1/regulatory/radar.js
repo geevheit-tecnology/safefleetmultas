@@ -1,10 +1,13 @@
-const { sendJson, withClient } = require("../../_db");
+const { organizationId, sendJson, withClient } = require("../../_db");
+const { ACTION_PERMISSIONS, authorize } = require("../../_authz");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
   if (req.method !== "GET") return sendJson(res, 405, { error: "method_not_allowed" });
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, organizationId(req), ACTION_PERMISSIONS.read_legislation);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const result = await client.query(
       `
       select

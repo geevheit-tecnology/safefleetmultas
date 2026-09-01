@@ -1,5 +1,8 @@
 const { organizationId, sendJson, withClient } = require("../../_db");
 const { recordAuditLog } = require("../../_auditLogger");
+const { ACTION_PERMISSIONS, authorize } = require("../../_authz");
+const { recordOutboxEvent } = require("../../_events");
+const { minimizePersonName } = require("../../_privacy");
 const { calculateRiskAssessment } = require("../../_riskEngine");
 
 function mapCase(row) {
@@ -18,7 +21,7 @@ function mapCase(row) {
     riskScore: row.risk_score,
     riskLevel: row.risk_level,
     vehiclePlate: row.vehicle_plate,
-    driverName: row.driver_name,
+    driverName: minimizePersonName(row.driver_name),
     rntrc: row.rntrc,
     location: row.location,
     authority: row.authority,
@@ -36,6 +39,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return sendJson(res, 405, { error: "method_not_allowed" });
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, organizationId(req), ACTION_PERMISSIONS.list_cases);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const result = await client.query(
       `
       select c.*, u.name as responsible_name
@@ -66,6 +71,8 @@ async function createCase(req, res) {
   }
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.create_case);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     await client.query("begin");
     try {
       const sequence = await client.query("select count(*)::int + 1 as next from regulatory_cases where organization_id = $1", [orgId]);
@@ -111,12 +118,25 @@ async function createCase(req, res) {
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_CREATED', $3)",
         [orgId, created.rows[0].id, `Prontuario criado pelo formulario web. RiskEngine calculou ${risk.score}/100 (${risk.level}).`]
       );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: created.rows[0].id,
+        eventType: "CASE_CREATED",
+        payload: { caseNumber, category, riskScore: risk.score, riskLevel: risk.level }
+      });
       await client.query(
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'RISK_ASSESSED', $3)",
         [orgId, created.rows[0].id, risk.explanation]
       );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: created.rows[0].id,
+        eventType: "RISK_CHANGED",
+        payload: { score: risk.score, level: risk.level }
+      });
       await recordAuditLog(client, req, {
         organizationId: orgId,
+        userId: authz.userId,
         action: "CASE_CREATED",
         entity: "regulatory_cases",
         entityId: created.rows[0].id,

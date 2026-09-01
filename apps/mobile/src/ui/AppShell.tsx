@@ -2,6 +2,7 @@ import { Link, usePathname } from "expo-router";
 import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { tokens } from "./tokens";
 
 type NavItem = {
   href: string;
@@ -21,11 +22,19 @@ const navItems: NavItem[] = [
   { href: "/admin", label: "Admin", icon: "shield-account-outline" }
 ];
 
+const mobileNavItems: NavItem[] = [
+  { href: "/", label: "Alertas", icon: "bell-alert-outline" },
+  { href: "/tasks", label: "Acoes", icon: "checkbox-marked-circle-outline" },
+  { href: "/cases", label: "Casos", icon: "folder-text-outline" },
+  { href: "/new-case", label: "Documento", icon: "camera-plus-outline" },
+  { href: "/cases", label: "Prazos", icon: "calendar-alert" }
+];
+
 export function AppShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const isWide = width >= 860;
-  const primaryNav = isWide ? navItems : navItems.slice(0, 5);
+  const primaryNav = isWide ? navItems : mobileNavItems;
 
   return (
     <View style={styles.shell}>
@@ -90,29 +99,29 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  shell: { flex: 1, flexDirection: "row", backgroundColor: "#f5f7fb" },
-  sidebar: { width: 248, backgroundColor: "#ffffff", borderRightColor: "#e4e7ec", borderRightWidth: 1, padding: 16, gap: 18 },
+  shell: { flex: 1, flexDirection: "row", backgroundColor: tokens.colors.background },
+  sidebar: { width: 248, backgroundColor: tokens.colors.surface, borderRightColor: tokens.colors.border, borderRightWidth: 1, padding: tokens.spacing.lg, gap: 18 },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: { width: 36, height: 36, borderRadius: 8, backgroundColor: "#10243f", alignItems: "center", justifyContent: "center" },
-  brandTitle: { color: "#101828", fontSize: 16, fontWeight: "900" },
-  brandSub: { color: "#667085", fontSize: 11, fontWeight: "600" },
+  logo: { width: 36, height: 36, borderRadius: tokens.radius.md, backgroundColor: tokens.colors.brand, alignItems: "center", justifyContent: "center" },
+  brandTitle: { color: tokens.colors.text, fontSize: tokens.typography.section, fontWeight: "900" },
+  brandSub: { color: tokens.colors.muted, fontSize: tokens.typography.tiny, fontWeight: "600" },
   nav: { gap: 6 },
-  navItem: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, textDecorationLine: "none" },
-  navActive: { backgroundColor: "#10243f" },
+  navItem: { borderRadius: tokens.radius.md, paddingHorizontal: 10, paddingVertical: 10, textDecorationLine: "none" },
+  navActive: { backgroundColor: tokens.colors.brand },
   navContent: { flexDirection: "row", alignItems: "center", gap: 10 },
   navText: { color: "#475467", fontWeight: "800", fontSize: 13 },
   navTextActive: { color: "#fff" },
   main: { flex: 1 },
-  topbar: { minHeight: 88, backgroundColor: "#fff", borderBottomColor: "#e4e7ec", borderBottomWidth: 1, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  kicker: { color: "#667085", fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
-  title: { color: "#101828", fontSize: 24, fontWeight: "900" },
-  subtitle: { color: "#667085", marginTop: 2 },
+  topbar: { minHeight: 88, backgroundColor: tokens.colors.surface, borderBottomColor: tokens.colors.border, borderBottomWidth: 1, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  kicker: { color: tokens.colors.muted, fontSize: tokens.typography.caption, fontWeight: "700", textTransform: "uppercase" },
+  title: { color: tokens.colors.text, fontSize: tokens.typography.title, fontWeight: "900" },
+  subtitle: { color: tokens.colors.muted, marginTop: 2 },
   demoBadge: { backgroundColor: "#fff3cd", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   demoText: { color: "#8a5a00", fontWeight: "900", fontSize: 11 },
-  content: { padding: 18, paddingBottom: 92, gap: 16, maxWidth: 1180, width: "100%", alignSelf: "center" },
-  bottomNav: { height: 68, borderTopColor: "#e4e7ec", borderTopWidth: 1, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "space-around", paddingHorizontal: 6 },
+  content: { padding: 20, paddingBottom: 96, gap: 16, maxWidth: 1180, width: "100%", alignSelf: "center" },
+  bottomNav: { height: tokens.components.bottomNavHeight, borderTopColor: tokens.colors.border, borderTopWidth: 1, backgroundColor: tokens.colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-around", paddingHorizontal: 6 },
   bottomItem: { flex: 1, textDecorationLine: "none" },
-  bottomContent: { alignItems: "center", justifyContent: "center", gap: 3 },
+  bottomContent: { alignItems: "center", justifyContent: "center", gap: 3, minHeight: 54, borderRadius: 8 },
   bottomText: { color: "#667085", fontSize: 10, fontWeight: "800" },
   bottomTextActive: { color: "#175cd3" }
 });

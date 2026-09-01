@@ -7,6 +7,7 @@ import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
 
 export default function TasksScreen() {
   const [actions, setActions] = useState<CaseAction[]>([]);
+  const [mode, setMode] = useState<"mine" | "all">("mine");
   const [summary, setSummary] = useState<OperationalSummary | null>(null);
   const [notifications, setNotifications] = useState<NotificationSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,8 @@ export default function TasksScreen() {
     }
   };
 
+  const visibleActions = mode === "mine" ? actions.filter((item) => item.status !== "DONE") : actions;
+
   return (
     <AppShell title="Tarefas" subtitle="Minha fila, acoes do dia e documentos pendentes">
       <View style={styles.metrics}>
@@ -60,11 +63,19 @@ export default function TasksScreen() {
         <InfoCard label="Aguardando decisao" value={String(summary?.waitingDecision ?? 0)} />
         <InfoCard label="Aguardando docs" value={String(summary?.waitingDocuments ?? 0)} tone="#b76e00" />
       </View>
-      <Panel title="Minha fila">
+      <Panel title={mode === "mine" ? "Minha fila" : "Todas as tarefas"}>
+        <View style={styles.tabs}>
+          <Pressable onPress={() => setMode("mine")} style={[styles.tab, mode === "mine" && styles.tabActive]}>
+            <Text style={[styles.tabText, mode === "mine" && styles.tabTextActive]}>Minha fila</Text>
+          </Pressable>
+          <Pressable onPress={() => setMode("all")} style={[styles.tab, mode === "all" && styles.tabActive]}>
+            <Text style={[styles.tabText, mode === "all" && styles.tabTextActive]}>Todas</Text>
+          </Pressable>
+        </View>
         {loading ? <Text style={styles.muted}>Carregando tarefas...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {!loading && actions.length === 0 ? <Text style={styles.muted}>Nenhuma tarefa cadastrada.</Text> : null}
-        {actions.map((item) => (
+        {!loading && visibleActions.length === 0 ? <Text style={styles.muted}>Nenhuma tarefa cadastrada.</Text> : null}
+        {visibleActions.map((item) => (
           <View key={item.id} style={styles.row}>
             <Link href={`/cases/${item.caseId}`} asChild>
               <Pressable style={styles.flex}>
@@ -116,6 +127,11 @@ function TaskButton({ label, disabled, onPress }: { label: string; disabled: boo
 
 const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tab: { minHeight: 34, justifyContent: "center", borderRadius: 8, borderWidth: 1, borderColor: "#d0d5dd", paddingHorizontal: 12 },
+  tabActive: { borderColor: "#175cd3", backgroundColor: "#eff8ff" },
+  tabText: { color: "#344054", fontWeight: "900", fontSize: 12 },
+  tabTextActive: { color: "#175cd3" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
   flex: { flex: 1 },
   title: { color: "#101828", fontWeight: "900" },

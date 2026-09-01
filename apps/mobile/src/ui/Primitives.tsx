@@ -1,13 +1,32 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { tokens, type RiskTone, type StatusTone } from "./tokens";
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{title}</Text>
+      <View style={styles.panelHeader}>
+        <Text style={styles.panelTitle}>{title}</Text>
+      </View>
       {children}
     </View>
   );
+}
+
+export function Button({ label, onPress, tone = "primary", disabled = false }: { label: string; onPress?: () => void; tone?: "primary" | "secondary" | "danger"; disabled?: boolean }) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, tone === "secondary" && styles.secondaryButton, tone === "danger" && styles.dangerButton, pressed && styles.pressed, disabled && styles.disabled]}
+    >
+      <Text style={[styles.buttonText, tone === "secondary" && styles.secondaryButtonText]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export function Input(props: TextInputProps) {
+  return <TextInput {...props} style={[styles.input, props.style]} placeholderTextColor={props.placeholderTextColor ?? "#98a2b3"} />;
 }
 
 export function InfoCard({ label, value, tone = "#101828" }: { label: string; value: string; tone?: string }) {
@@ -19,6 +38,30 @@ export function InfoCard({ label, value, tone = "#101828" }: { label: string; va
   );
 }
 
+export function Badge({ text, tone = tokens.colors.primary }: { text: string; tone?: string }) {
+  return <Pill text={text} tone={tone} />;
+}
+
+export function StatusBadge({ status }: { status: string }) {
+  return <Pill text={status} tone={tokens.status[status as StatusTone] ?? tokens.colors.primary} />;
+}
+
+export function RiskBadge({ level, score }: { level: string; score?: number }) {
+  return <Pill text={score === undefined ? level : `${level} ${score}`} tone={tokens.risk[level as RiskTone] ?? tokens.colors.primary} />;
+}
+
+export function EmptyState({ text }: { text: string }) {
+  return <Text style={styles.muted}>{text}</Text>;
+}
+
+export function LoadingState({ text = "Carregando..." }: { text?: string }) {
+  return <Text style={styles.muted}>{text}</Text>;
+}
+
+export function ErrorState({ text }: { text: string }) {
+  return <Text style={styles.error}>{text}</Text>;
+}
+
 export function Pill({ text, tone = "#175cd3" }: { text: string; tone?: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: `${tone}18` }]}>
@@ -28,11 +71,44 @@ export function Pill({ text, tone = "#175cd3" }: { text: string; tone?: string }
 }
 
 const styles = StyleSheet.create({
-  panel: { backgroundColor: "#fff", borderRadius: 8, borderColor: "#e4e7ec", borderWidth: 1, padding: 16, gap: 10 },
-  panelTitle: { color: "#101828", fontSize: 16, fontWeight: "900" },
-  info: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e4e7ec", padding: 14, minWidth: 160, flex: 1 },
+  panel: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.md,
+    borderColor: tokens.colors.border,
+    borderWidth: tokens.elevation.border,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+    shadowColor: "#101828",
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 }
+  },
+  panelHeader: { borderBottomWidth: 1, borderBottomColor: tokens.colors.border, paddingBottom: tokens.spacing.sm },
+  panelTitle: { color: tokens.colors.text, fontSize: tokens.typography.section, fontWeight: "900" },
+  button: { minHeight: tokens.components.controlHeight, justifyContent: "center", borderRadius: tokens.radius.md, paddingHorizontal: 14, backgroundColor: tokens.colors.primary },
+  secondaryButton: { backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.primary },
+  dangerButton: { backgroundColor: tokens.colors.danger },
+  buttonText: { color: "#ffffff", fontWeight: "900", textAlign: "center", fontSize: tokens.typography.caption },
+  secondaryButtonText: { color: tokens.colors.primary },
+  input: { borderWidth: 1, borderColor: tokens.colors.borderStrong, borderRadius: tokens.radius.md, minHeight: tokens.components.controlHeight, paddingHorizontal: 12, color: tokens.colors.text, backgroundColor: tokens.colors.surface },
+  info: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.md,
+    borderWidth: tokens.elevation.border,
+    borderColor: tokens.colors.border,
+    padding: 14,
+    minWidth: tokens.components.cardMinWidth,
+    flex: 1,
+    shadowColor: "#101828",
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 }
+  },
   infoValue: { fontWeight: "900", fontSize: 19, marginTop: 4 },
-  muted: { color: "#667085", fontSize: 12 },
+  muted: { color: tokens.colors.muted, fontSize: tokens.typography.caption },
+  error: { color: tokens.colors.danger, fontWeight: "800" },
   pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start" },
-  pillText: { fontWeight: "900", fontSize: 11 }
+  pillText: { fontWeight: "900", fontSize: tokens.typography.tiny },
+  pressed: { opacity: 0.82 },
+  disabled: { opacity: 0.55 }
 });

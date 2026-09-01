@@ -36,8 +36,9 @@ export default function LegislationScreen() {
     <AppShell title="Legislacao" subtitle="Biblioteca versionada por vigencia e fonte oficial">
       <View style={styles.metrics}>
         <InfoCard label="Normas" value={String(laws.length)} />
-        <InfoCard label="A validar" value={String(laws.filter((item) => item.status === "NOT_VERIFIED").length)} tone="#b76e00" />
-        <InfoCard label="Versoes" value={String(laws.reduce((sum, item) => sum + item.versions, 0))} />
+          <InfoCard label="A validar" value={String(laws.filter((item) => item.status === "NOT_VERIFIED").length)} tone="#b76e00" />
+          <InfoCard label="Versoes" value={String(laws.reduce((sum, item) => sum + item.versions, 0))} />
+        <InfoCard label="Com fonte" value={String(laws.filter((item) => item.source).length)} tone="#067647" />
       </View>
       <Panel title="Biblioteca">
         {loading ? <Text style={styles.muted}>Carregando legislacao...</Text> : null}
@@ -56,6 +57,46 @@ export default function LegislationScreen() {
               <Text style={styles.muted}>Fonte: {item.source || "fonte oficial pendente"} · Hash: {item.sourceHash || "pendente"}</Text>
             </View>
             <Pill text={item.status} tone={item.status === "NOT_VERIFIED" ? "#b76e00" : "#067647"} />
+          </View>
+        ))}
+      </Panel>
+
+      <View style={styles.columns}>
+        <Panel title="Norma">
+          {(laws[0] ? [laws[0]] : []).map((item) => (
+            <View key={`norm-${item.id}`} style={styles.ruleRow}>
+              <View style={styles.flex}>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.muted}>{item.type || "tipo nao informado"} · {item.authority} · {item.status}</Text>
+                <Text style={styles.body}>Vigencia {item.effectiveFrom || item.effective}. Historico por versoes preserva a regra aplicavel na data da ocorrencia.</Text>
+              </View>
+              <Pill text={item.currentVersion ?? "VERSAO"} />
+            </View>
+          ))}
+        </Panel>
+
+        <Panel title="Artigos">
+          {(effectiveRule?.matches ?? []).length === 0 ? <Text style={styles.muted}>Consulte uma regra vigente para visualizar artigos/conteudo versionado.</Text> : null}
+          {(effectiveRule?.matches ?? []).map((item) => (
+            <View key={`article-${item.id}-${item.versionLabel}`} style={styles.ruleRow}>
+              <View style={styles.flex}>
+                <Text style={styles.title}>Artigo vinculado · {item.versionLabel}</Text>
+                <Text style={styles.body}>{item.content}</Text>
+              </View>
+              <Pill text={item.authority} />
+            </View>
+          ))}
+        </Panel>
+      </View>
+
+      <Panel title="Historico">
+        {laws.map((item) => (
+          <View key={`history-${item.id}`} style={styles.row}>
+            <View style={styles.flex}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.muted}>{item.versions} versao(oes) · vigente desde {item.effectiveFrom || item.effective} {item.effectiveUntil ? `ate ${item.effectiveUntil}` : "sem fim informado"}</Text>
+            </View>
+            <Pill text="HISTORICO" tone="#10243f" />
           </View>
         ))}
       </Panel>
@@ -92,6 +133,7 @@ export default function LegislationScreen() {
 
 const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  columns: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
   flex: { flex: 1 },
   title: { color: "#101828", fontWeight: "900" },

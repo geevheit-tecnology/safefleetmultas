@@ -1,5 +1,6 @@
 const { organizationId, sendJson, withClient } = require("../_db");
 const { recordAuditLog } = require("../_auditLogger");
+const { ACTION_PERMISSIONS, authorize } = require("../_authz");
 const { buildChannelPlan, mapNotification, notificationChannels, notificationTypes } = require("../_notificationEngine");
 
 const allowedStatuses = new Set(["PENDING", "IN_PROGRESS", "DONE", "CANCELLED"]);
@@ -30,6 +31,8 @@ async function listTasks(req, res) {
   if (req.query?.summary === "1") return operationalSummary(req, res);
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, organizationId(req), ACTION_PERMISSIONS.list_cases);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const result = await client.query(
       `
       select
@@ -57,6 +60,8 @@ async function listTasks(req, res) {
 async function listNotifications(req, res) {
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.list_cases);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     await client.query("begin");
     try {
       await client.query(
@@ -151,6 +156,8 @@ async function listNotifications(req, res) {
 async function operationalSummary(req, res) {
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.list_cases);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const [actions, deadlines, documents, cases] = await Promise.all([
       client.query(
         `
@@ -217,6 +224,8 @@ async function updateTask(req, res) {
   }
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.update_case);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     await client.query("begin");
     try {
       const current = await client.query(
@@ -254,6 +263,7 @@ async function updateTask(req, res) {
       );
       await recordAuditLog(client, req, {
         organizationId: orgId,
+        userId: authz.userId,
         action: "TASK_STATUS_CHANGED",
         entity: "case_actions",
         entityId: id,

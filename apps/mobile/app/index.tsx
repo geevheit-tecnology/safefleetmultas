@@ -34,6 +34,29 @@ export default function DashboardScreen() {
         <InfoCard label="Encerrados" value={String(dashboard.closedCases ?? 0)} />
       </View>
 
+      <View style={styles.quickActions}>
+        <Link href="/tasks" style={styles.quickAction}>
+          <MaterialCommunityIcons name="bell-alert-outline" size={20} color="#b42318" />
+          <Text style={styles.quickTitle}>Alertas</Text>
+          <Text style={styles.quickMeta}>{dashboard.overdueDeadlines ?? 0} vencido(s)</Text>
+        </Link>
+        <Link href="/cases" style={styles.quickAction}>
+          <MaterialCommunityIcons name="calendar-alert" size={20} color="#b76e00" />
+          <Text style={styles.quickTitle}>Prazos</Text>
+          <Text style={styles.quickMeta}>{dashboard.upcomingDeadlines} proximos</Text>
+        </Link>
+        <Link href="/cases" style={styles.quickAction}>
+          <MaterialCommunityIcons name="folder-search-outline" size={20} color="#175cd3" />
+          <Text style={styles.quickTitle}>Prontuario</Text>
+          <Text style={styles.quickMeta}>{dashboard.activeCases} ativos</Text>
+        </Link>
+        <Link href="/new-case" style={styles.quickAction}>
+          <MaterialCommunityIcons name="camera-plus-outline" size={20} color="#067647" />
+          <Text style={styles.quickTitle}>Documento</Text>
+          <Text style={styles.quickMeta}>fotografar/anexar</Text>
+        </Link>
+      </View>
+
       <View style={styles.scorePanel}>
         <View style={styles.scoreCircle}>
           <Text style={styles.score}>{dashboard.regulatoryScore}</Text>
@@ -130,6 +153,10 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  quickActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  quickAction: { minWidth: 132, flex: 1, backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#e4e7ec", borderRadius: 8, padding: 12, textDecorationLine: "none" },
+  quickTitle: { color: "#101828", fontWeight: "900", marginTop: 6 },
+  quickMeta: { color: "#667085", fontSize: 12, marginTop: 2 },
   scorePanel: { backgroundColor: "#fff", borderRadius: 8, padding: 18, borderColor: "#e4e7ec", borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 16 },
   scoreCircle: { width: 96, height: 96, borderRadius: 48, borderWidth: 10, borderColor: "#12b76a", alignItems: "center", justifyContent: "center" },
   score: { fontSize: 25, fontWeight: "900", color: "#101828" },

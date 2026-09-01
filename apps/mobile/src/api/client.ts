@@ -64,6 +64,7 @@ export type SecuritySummary = {
     mutationAudit: string;
     deploymentProtection: string;
     productionAuth: string;
+    privacy?: string;
   };
 };
 

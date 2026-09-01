@@ -54,3 +54,29 @@ FASE 18 esta parcial/completa para preview: Vercel preview publico e Neon estao 
 - [x] Secao #26 - Prevencao: analise de causa padronizada relaciona multa, causa, acao corretiva e plano preventivo como aprendizado operacional.
 - [x] Secao #27 - Notificacoes: `NotificationEngine` prepara tipos do prompt e canais in-app, push, e-mail e WhatsApp futuro sem envio externo no preview.
 - [x] Secao #28 - Auditoria: `audit_logs` recebe registros append-only com action/entity/old/new sanitizados, IP e user-agent, sem payload sensivel desnecessario.
+- [x] Secao #29 - Perfis: RBAC com PRESIDENT, DIRECTOR, OPERATOR, LEGAL e ADMIN, matriz granular de permissoes e enforcement server-side por `X-User-Id` demo.
+- [x] Secao #30 - Telas: rotas iniciais cobrem autenticacao, central, prontuarios, tarefas, legislacao, radar, inteligencia e administracao com filtros/abas/blocos funcionais.
+- [x] Secao #31 - Experiencia Mobile: navegacao inferior prioriza alertas, acoes, prontuarios, documento/foto e prazos com atalhos na Central.
+- [x] Secao #32 - Experiencia Web: sidebar web preserva administracao, analise, dashboard, legislacao, relatorios, documentos e risco.
+- [x] Secao #33 - Design: interface clara, profissional, executiva, pouco escura, com contraste e sem animacoes excessivas.
+- [x] Secao #34 - Design System: tokens de spacing, typography, radius, elevation, colors, status, risk e componentes base adicionados.
+- [x] Secao #35 - Banco de Dados Inicial: migrations cobrem entidades iniciais, UUIDs, FKs, constraints, indices, RBAC, prevencao e outbox.
+- [x] Secao #36 - API: REST `/api/v1` documentada, com health, aliases versionados e rewrites para sub-recursos sem exceder limite Vercel.
+- [x] Secao #37 - Eventos: eventos criticos gravam `case_events` e `event_outbox` para publicacao persistente futura.
+- [x] Secao #38 - Seguranca: RBAC, tenant header, input validation, rate/body limit, MIME/size/hash de upload, logs/auditoria e secrets por env.
+- [x] Secao #39 - LGPD: respostas minimizam nome de motorista, mascaram e-mails/documentos e documentam finalidade/privacidade sem dados reais de terceiros.
+- [x] Secao #40 - Testes: smoke tests cobrem risco, prazo, workflow, IA segura, notificacoes, score, auditoria, RBAC, LGPD e outbox; validacoes API/DB seguem por preview.
+- [x] Secao #41 - Seed: dados DEMO expandidos para 10 ocorrencias no Neon, com riscos variados, prazos, documentos ficticios, legislacao ficticia e eventos.
+- [x] Secao #42 - MVP: release preview cobre core, prontuario, executivo, legislacao, IA preparada e radar inicial sem sair do foco risco regulatorio ANTT.
+- [x] Secao #43 - O que nao fazer no MVP: escopo preservado em risco regulatorio ANTT; nao foram adicionados frota, manutencao, pneus, combustivel, TMS ou automacao juridica completa.
+- [x] Secao #44 - Roadmap: `docs/roadmap.md` organiza V1 a V5 e separa integrações externas/futuras do MVP atual.
+- [x] Secao #45 - Regra de desenvolvimento: sem apagar funcionalidades boas, sem criar centenas de arquivos, sem fingir integracoes; mocks ficam documentados.
+- [x] Secao #46 - Documentacao obrigatoria: README, docs principais, `.env.example` e `docker-compose.yml` existem no repositorio.
+- [x] Secao #47 - Fonte regulatoria: fontes oficiais priorizadas e regras nao confirmadas permanecem `NOT_VERIFIED`.
+- [x] Secao #48 - Regra critica: reincidencia aparece como possivel ocorrencia relacionada, exigindo validacao humana.
+- [x] Secao #49 - Primeira entrega: fases 1-18 rastreadas acima; parciais declaradas onde dependem de provedor externo/autenticacao real.
+- [x] Secao #50 - Regra final para o agente: inspecao, tecnologias existentes, migrations, testes, docs e secrets por ambiente seguidos nesta build.
+
+## Verificacao de secoes restantes
+
+As secoes #43 a #50 sao regras, roadmap e instrucoes de entrega, nao novos modulos de tela/banco. O MVP funcional foi fechado ate #42; as secoes finais ficam atendidas por escopo preservado, documentacao, validacoes e restricoes de implementacao.

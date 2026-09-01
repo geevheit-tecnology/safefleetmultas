@@ -28,7 +28,15 @@ await client.connect();
 try {
   const migrations = process.env.MIGRATION_FILES
     ? process.env.MIGRATION_FILES.split(",").map((item) => item.trim()).filter(Boolean)
-    : ["database/migrations/001_initial_schema.sql", "database/migrations/002_demo_seed.sql", "database/migrations/003_regulatory_demo_seed.sql", "database/migrations/004_prevention.sql"];
+    : [
+        "database/migrations/001_initial_schema.sql",
+        "database/migrations/002_demo_seed.sql",
+        "database/migrations/003_regulatory_demo_seed.sql",
+        "database/migrations/004_prevention.sql",
+        "database/migrations/005_rbac.sql",
+        "database/migrations/006_events_security.sql",
+        "database/migrations/007_demo_seed_expansion.sql"
+      ];
 
   for (const migration of migrations) {
     console.log(`Aplicando ${migration}`);

@@ -1,3 +1,5 @@
+const { actorId } = require("./_authz");
+
 function getRequestIp(req) {
   const forwardedFor = String(req.headers["x-forwarded-for"] || "");
   return forwardedFor.split(",")[0].trim() || null;
@@ -14,6 +16,7 @@ function sanitizeAuditValue(value) {
 }
 
 async function recordAuditLog(client, req, { organizationId, userId = null, action, entity, entityId = null, oldValue = null, newValue = null }) {
+  const effectiveUserId = userId || actorId(req);
   await client.query(
     `
     insert into audit_logs (organization_id, user_id, action, entity, entity_id, old_value, new_value, ip, user_agent)
@@ -21,7 +24,7 @@ async function recordAuditLog(client, req, { organizationId, userId = null, acti
     `,
     [
       organizationId,
-      userId,
+      effectiveUserId,
       action,
       entity,
       entityId,

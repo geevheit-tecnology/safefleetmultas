@@ -1,4 +1,5 @@
 const { organizationId, sendJson, withClient } = require("../_db");
+const { ACTION_PERMISSIONS, authorize } = require("../_authz");
 const { calculateRegulatoryScore } = require("../_regulatoryScoreEngine");
 
 module.exports = async function handler(req, res) {
@@ -7,6 +8,8 @@ module.exports = async function handler(req, res) {
 
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.read_reports);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const [result, deadlineResult, trendResult, changeResult] = await Promise.all([
       client.query(
       `

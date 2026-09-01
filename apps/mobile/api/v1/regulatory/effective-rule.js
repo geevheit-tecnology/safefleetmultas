@@ -1,4 +1,5 @@
-const { sendJson, withClient } = require("../../_db");
+const { organizationId, sendJson, withClient } = require("../../_db");
+const { ACTION_PERMISSIONS, authorize } = require("../../_authz");
 
 function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -19,6 +20,8 @@ module.exports = async function handler(req, res) {
   }
 
   await withClient(res, async (client) => {
+    const authz = await authorize(client, req, organizationId(req), ACTION_PERMISSIONS.read_legislation);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const result = await client.query(
       `
       select

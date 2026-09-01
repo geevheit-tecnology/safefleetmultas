@@ -32,6 +32,7 @@ export default function AdminScreen() {
             <ControlRow label="Auditoria de mutacoes" value={summary.controls.mutationAudit} />
             <ControlRow label="Protecao do preview" value={summary.controls.deploymentProtection} tone="#b76e00" />
             <ControlRow label="Auth producao" value={summary.controls.productionAuth} tone="#b42318" />
+            {summary.controls.privacy ? <ControlRow label="LGPD" value={summary.controls.privacy} /> : null}
           </Panel>
 
           <View style={styles.columns}>

@@ -5,6 +5,50 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/v1/cases/:id/timeline",
+      "destination": "/api/v1/case?id=:id&view=timeline"
+    },
+    {
+      "source": "/api/v1/cases/:id/documents",
+      "destination": "/api/v1/case?id=:id&view=documents"
+    },
+    {
+      "source": "/api/v1/cases/:id/deadlines",
+      "destination": "/api/v1/case?id=:id&view=deadlines"
+    },
+    {
+      "source": "/api/v1/cases/:id/actions",
+      "destination": "/api/v1/case?id=:id&view=actions"
+    },
+    {
+      "source": "/api/v1/cases/:id",
+      "destination": "/api/v1/case?id=:id"
+    },
+    {
+      "source": "/api/v1/legislation",
+      "destination": "/api/v1/regulatory/library"
+    },
+    {
+      "source": "/api/v1/legislation/:id",
+      "destination": "/api/v1/regulatory/library?id=:id"
+    },
+    {
+      "source": "/api/v1/radar",
+      "destination": "/api/v1/regulatory/radar"
+    },
+    {
+      "source": "/api/v1/notifications",
+      "destination": "/api/v1/tasks?notifications=1"
+    },
+    {
+      "source": "/api/v1/audit",
+      "destination": "/api/v1/admin/security?view=audit"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
