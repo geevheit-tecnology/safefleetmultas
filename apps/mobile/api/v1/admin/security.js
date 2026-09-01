@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
 
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
-    const [org, users, roles, permissions] = await Promise.all([
+    const [org, users, roles, permissions, audit] = await Promise.all([
       client.query("select id, name, coalesce(document, '') as document from organizations where id = $1", [orgId]),
       client.query(
         `
@@ -40,6 +40,16 @@ module.exports = async function handler(req, res) {
         order by r.code, p.code
         `,
         [orgId]
+      ),
+      client.query(
+        `
+        select action, entity, to_char(created_at, 'DD/MM HH24:MI') as "createdAt", coalesce(user_agent, '') as "userAgent"
+        from audit_logs
+        where organization_id = $1
+        order by created_at desc
+        limit 12
+        `,
+        [orgId]
       )
     ]);
 
@@ -54,9 +64,15 @@ module.exports = async function handler(req, res) {
       userCount: users.rowCount,
       roles: roles.rows,
       permissions: permissions.rows,
+      audit: audit.rows.map((item) => ({
+        action: item.action,
+        entity: item.entity,
+        createdAt: item.createdAt,
+        userAgent: item.userAgent ? "registrado" : "nao informado"
+      })),
       controls: {
         tenantIsolation: "X-Organization-Id + organization_members",
-        mutationAudit: "case_events and status history",
+        mutationAudit: "audit_logs append-only + case_events/status history",
         deploymentProtection: "public preview authorized",
         productionAuth: "pending external identity provider"
       }

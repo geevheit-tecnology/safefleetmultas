@@ -22,6 +22,7 @@ export default function RadarScreen() {
         <InfoCard label="Mudancas" value={String(changes.length)} />
         <InfoCard label="Alto impacto" value={String(changes.filter((item) => item.impact === "HIGH").length)} tone="#b42318" />
         <InfoCard label="A validar" value={String(changes.filter((item) => item.impact === "NOT_VERIFIED").length)} tone="#b76e00" />
+        <InfoCard label="Casos relacionados" value={String(changes.reduce((sum, item) => sum + (item.relatedCases ?? 0), 0))} />
       </View>
       <Panel title="Novidades e impactos">
         {loading ? <Text style={styles.muted}>Carregando radar...</Text> : null}
@@ -32,7 +33,11 @@ export default function RadarScreen() {
             <View style={styles.flex}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.muted}>{item.legalDocument} · detectado {item.detectedAt}</Text>
+              <Text style={styles.muted}>
+                Tema {item.topic ?? "GERAL"} · {item.relatedCases ?? 0} relacionado(s) · {item.potentiallyAffected ?? 0} potencialmente afetado(s)
+              </Text>
               <Text style={styles.body}>{item.detail}</Text>
+              <Text style={styles.muted}>{item.analysisNote ?? "Analise automatica de apoio; exige validacao humana."}</Text>
             </View>
             <Pill text={item.impact} tone={item.impact === "HIGH" ? "#b42318" : "#b76e00"} />
           </View>

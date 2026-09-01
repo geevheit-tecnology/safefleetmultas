@@ -1,9 +1,21 @@
 const { buildCaseSupportAnalysis } = require("../../_aiProvider");
 const { organizationId, sendJson, withClient } = require("../../_db");
 
+function canWriteIntelligence(req) {
+  const configuredToken = process.env.INTELLIGENCE_WRITE_TOKEN;
+  const requestToken = req.headers["x-intelligence-token"];
+  return Boolean(configuredToken && requestToken === configuredToken);
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
   if (req.method !== "POST") return sendJson(res, 405, { error: "method_not_allowed" });
+  if (!canWriteIntelligence(req)) {
+    return sendJson(res, 403, {
+      error: "forbidden",
+      message: "Analises de IA persistidas exigem token de escrita no servidor."
+    });
+  }
 
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const caseId = String(body.caseId || "").trim();

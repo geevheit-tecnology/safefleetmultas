@@ -21,12 +21,25 @@ export type RegulatoryCase = {
   location?: string;
   authority: string;
   responsible: string;
-  deadlines: Array<{ id: string; type: string; dueDate: string; daysLeft: number; status: "PENDING" | "COMPLETED" | "EXPIRED"; basis: string }>;
-  actions: Array<{ id: string; title: string; priority: "HIGH" | "MEDIUM" | "LOW"; status: "PENDING" | "IN_PROGRESS" | "DONE"; dueDate: string }>;
+  deadlines: Array<{ id: string; type: string; dueDate: string; daysLeft: number; status: "PENDING" | "COMPLETED" | "EXPIRED" | "CANCELLED"; basis: string; startEvent?: string; duration?: number; alertLevel?: string }>;
+  actions: Array<{ id: string; title: string; priority: "HIGH" | "MEDIUM" | "LOW"; status: "PENDING" | "IN_PROGRESS" | "DONE" | "CANCELLED"; dueDate: string; responsible?: string; completedAt?: string }>;
   documents: Array<{ id: string; name: string; type: string; version: number; storageKey: string }>;
   notes: Array<{ id: string; body: string; author: string; createdAt: string }>;
   decisions: Array<{ id: string; type: string; date: string; finalAmount: number; notes: string }>;
   aiExtractions: Array<{ id: string; provider: string; status: string; documentName: string; extractedData: Record<string, unknown>; confirmedAt?: string }>;
+  preventions: Array<{ id: string; causeCategory: string; causeDescription: string; correctiveAction: string; preventionPlan: string; createdAt: string }>;
+  riskAssessment?: {
+    id: string;
+    score: number;
+    level: RiskLevel;
+    explanation: string;
+    createdAt: string;
+    factors: Array<{ factor: string; weight: number; value: string }>;
+  } | null;
+  closureChecklist?: {
+    readyToClose: boolean;
+    items: Array<{ key: string; label: string; done: boolean }>;
+  };
   timeline: Array<{ id: string; date: string; title: string; description: string; user: string }>;
 };
 
@@ -64,6 +77,8 @@ export const cases: RegulatoryCase[] = [
     notes: [],
     decisions: [],
     aiExtractions: [],
+    preventions: [],
+    riskAssessment: null,
     timeline: [
       { id: "ev-1", date: "14/08 09:15", title: "Auto recebido", description: "Documento registrado no prontuario.", user: "Maria Souza" },
       { id: "ev-2", date: "15/08 09:10", title: "Risco calculado", description: `Score ${riskOne}/100. Analise automatica de apoio.`, user: "RiskEngine" }
@@ -92,6 +107,8 @@ export const cases: RegulatoryCase[] = [
     notes: [],
     decisions: [],
     aiExtractions: [],
+    preventions: [],
+    riskAssessment: null,
     timeline: [{ id: "ev-3", date: "30/07 14:00", title: "Prontuario criado", description: "Caso aberto para analise operacional.", user: "Carlos Oliveira" }]
   },
   {
@@ -116,6 +133,8 @@ export const cases: RegulatoryCase[] = [
     notes: [],
     decisions: [],
     aiExtractions: [],
+    preventions: [],
+    riskAssessment: null,
     timeline: [{ id: "ev-4", date: "18/06 14:20", title: "Triagem", description: "Categoria Documentacao / MDF-e.", user: "Ana Lima" }]
   }
 ];
@@ -123,8 +142,15 @@ export const cases: RegulatoryCase[] = [
 export const dashboard = {
   organizationName: "Transportadora Demo",
   regulatoryScore: 72,
+  scoreComponents: { deadlines: 65, documentation: 70, ciot: 55, floorMinimum: 62, processes: 78, repetition: 68, prevention: 64 },
+  scoreDisclaimer: "Indicador interno do sistema; nao representa certificacao oficial.",
   financialExposure: cases.filter((item) => item.status !== "CLOSED").reduce((sum, item) => sum + item.amount, 0),
   criticalCases: cases.filter((item) => item.riskLevel === "CRITICAL").length,
   activeCases: cases.filter((item) => item.status !== "CLOSED").length,
-  upcomingDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "PENDING" && item.daysLeft <= 15).length
+  closedCases: cases.filter((item) => item.status === "CLOSED").length,
+  inTreatmentCases: cases.filter((item) => ["IN_TREATMENT", "ACTION_REQUIRED", "ANALYSIS", "TRIAGE"].includes(item.status)).length,
+  upcomingDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "PENDING" && item.daysLeft <= 15).length,
+  overdueDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "EXPIRED").length,
+  trends: [{ month: "2026-08", cases: cases.length, amount: cases.reduce((sum, item) => sum + item.amount, 0) }],
+  regulatoryChanges: [{ title: "Tema CIOT com possivel impacto", impact: "HIGH", detectedAt: "29/08" }]
 };

@@ -1,13 +1,26 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { addNote, attachDocument, completeDeadline, confirmDocumentExtraction, createDeadline, getCase, prepareDocumentExtraction, registerDecision, updateCaseStatus } from "../../src/api/client";
+import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
 import { cases, type RegulatoryCase } from "../../src/data/demo";
 import { allowedTransitions, type CaseStatus } from "../../src/domain/workflow";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const preventionCategories = new Set<CreatePreventionInput["causeCategory"]>([
+  "OPERATIONAL_FAILURE",
+  "DOCUMENT_FAILURE",
+  "PROCESS_FAILURE",
+  "HUMAN_FAILURE",
+  "SYSTEM_FAILURE",
+  "THIRD_PARTY",
+  "UNKNOWN"
+]);
+
+function isPreventionCategory(value: string): value is CreatePreventionInput["causeCategory"] {
+  return preventionCategories.has(value as CreatePreventionInput["causeCategory"]);
+}
 
 export default function CaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,6 +29,13 @@ export default function CaseDetailScreen() {
   const [deadlineType, setDeadlineType] = useState("Validar prazo de defesa");
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineBasis, setDeadlineBasis] = useState("NOT_VERIFIED");
+  const [actionTitle, setActionTitle] = useState("Reunir documentacao");
+  const [actionPriority, setActionPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
+  const [actionDueDate, setActionDueDate] = useState("");
+  const [causeCategory, setCauseCategory] = useState<CreatePreventionInput["causeCategory"]>("OPERATIONAL_FAILURE");
+  const [causeDescription, setCauseDescription] = useState("");
+  const [correctiveAction, setCorrectiveAction] = useState("");
+  const [preventionPlan, setPreventionPlan] = useState("");
   const [documentName, setDocumentName] = useState("Auto de infracao digitalizado");
   const [documentType, setDocumentType] = useState("AUTO_INFRACAO");
   const [documentStorageKey, setDocumentStorageKey] = useState("");
@@ -28,11 +48,17 @@ export default function CaseDetailScreen() {
   const [updatingStatus, setUpdatingStatus] = useState<CaseStatus | null>(null);
   const [updatingDeadlineId, setUpdatingDeadlineId] = useState<string | null>(null);
   const [creatingDeadline, setCreatingDeadline] = useState(false);
+  const [creatingAction, setCreatingAction] = useState(false);
+  const [creatingPrevention, setCreatingPrevention] = useState(false);
   const [attachingDocument, setAttachingDocument] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
   const [registeringDecision, setRegisteringDecision] = useState(false);
   const [extractingDocumentId, setExtractingDocumentId] = useState<string | null>(null);
   const [confirmingExtractionId, setConfirmingExtractionId] = useState<string | null>(null);
+  const [relationshipSuggestions, setRelationshipSuggestions] = useState<RelationshipSuggestionSummary | null>(null);
+  const [loadingRelationships, setLoadingRelationships] = useState(false);
+  const [validatingRelationshipId, setValidatingRelationshipId] = useState<string | null>(null);
+  const [confirmingClosure, setConfirmingClosure] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,6 +104,19 @@ export default function CaseDetailScreen() {
       setError("Nao foi possivel concluir o prazo.");
     } finally {
       setUpdatingDeadlineId(null);
+    }
+  };
+
+  const addAction = async () => {
+    setCreatingAction(true);
+    setError(null);
+    try {
+      setItem(await createCaseAction({ caseId: item.id, title: actionTitle, priority: actionPriority, dueDate: actionDueDate }));
+      setActionDueDate("");
+    } catch {
+      setError("Nao foi possivel criar a acao.");
+    } finally {
+      setCreatingAction(false);
     }
   };
 
@@ -138,6 +177,67 @@ export default function CaseDetailScreen() {
       setError("Nao foi possivel registrar a decisao.");
     } finally {
       setRegisteringDecision(false);
+    }
+  };
+
+  const loadRelationshipSuggestions = async () => {
+    setLoadingRelationships(true);
+    setError(null);
+    try {
+      setRelationshipSuggestions(await suggestRelationships(item.id));
+    } catch {
+      setError("Nao foi possivel sugerir relacoes.");
+    } finally {
+      setLoadingRelationships(false);
+    }
+  };
+
+  const approveRelationship = async (targetCaseId: string, relationshipType: "POSSIBLE_REPETITION" | "RELATED_CASE") => {
+    setValidatingRelationshipId(targetCaseId);
+    setError(null);
+    try {
+      await validateRelationship({ sourceCaseId: item.id, targetCaseId, relationshipType });
+      setRelationshipSuggestions((current) =>
+        current
+          ? {
+              ...current,
+              suggestions: current.suggestions.map((suggestion) =>
+                suggestion.targetCaseId === targetCaseId ? { ...suggestion, alreadyLinked: true } : suggestion
+              )
+            }
+          : current
+      );
+    } catch {
+      setError("Nao foi possivel validar a relacao.");
+    } finally {
+      setValidatingRelationshipId(null);
+    }
+  };
+
+  const submitClosureConfirmation = async () => {
+    setConfirmingClosure(true);
+    setError(null);
+    try {
+      setItem(await confirmClosure(item.id));
+    } catch {
+      setError("Nao foi possivel confirmar a alta regulatoria.");
+    } finally {
+      setConfirmingClosure(false);
+    }
+  };
+
+  const submitPrevention = async () => {
+    setCreatingPrevention(true);
+    setError(null);
+    try {
+      setItem(await createPrevention({ caseId: item.id, causeCategory, causeDescription, correctiveAction, preventionPlan }));
+      setCauseDescription("");
+      setCorrectiveAction("");
+      setPreventionPlan("");
+    } catch {
+      setError("Nao foi possivel registrar a prevencao.");
+    } finally {
+      setCreatingPrevention(false);
     }
   };
 
@@ -208,19 +308,60 @@ export default function CaseDetailScreen() {
 
       <View style={styles.columns}>
         <Panel title="Diagnostico">
+          <Text style={styles.itemTitle}>RiskEngine</Text>
+          <Text style={styles.body}>
+            {item.riskAssessment?.explanation ?? `Score atual ${item.riskScore}/100 (${item.riskLevel}).`}
+          </Text>
+          {item.riskAssessment?.factors?.map((factor) => (
+            <Text key={factor.factor} style={styles.muted}>
+              {factor.factor}: peso {Math.round(factor.weight)} · valor {factor.value}
+            </Text>
+          ))}
           <Text style={styles.itemTitle}>Base regulatoria</Text>
           <Text style={styles.body}>Fontes oficiais ainda nao verificadas neste ambiente. Qualquer prazo ou enquadramento fica como NOT_VERIFIED ate validacao humana.</Text>
           <Text style={styles.itemTitle}>Reincidencia</Text>
           <Text style={styles.body}>Possivel ocorrencia relacionada por tema. Nao e conclusao juridica automatica.</Text>
+          <Pressable disabled={loadingRelationships} onPress={loadRelationshipSuggestions} style={({ pressed }) => [styles.secondaryButton, styles.inlineButton, pressed && styles.pressed, loadingRelationships && styles.disabled]}>
+            <Text style={styles.secondaryButtonText}>{loadingRelationships ? "Buscando..." : "Buscar semelhantes"}</Text>
+          </Pressable>
+          {relationshipSuggestions ? <Text style={styles.muted}>{relationshipSuggestions.message} Validacao humana obrigatoria.</Text> : null}
+          {relationshipSuggestions?.suggestions.map((suggestion) => (
+            <View key={suggestion.targetCaseId} style={styles.relationRow}>
+              <View style={styles.flex}>
+                <Text style={styles.itemTitle}>{suggestion.targetCaseNumber} · {suggestion.relationshipType}</Text>
+                <Text style={styles.muted}>{suggestion.category} · risco {suggestion.riskLevel} {suggestion.riskScore}/100 · motivos: {suggestion.reasons.join(", ") || "padrao geral"}</Text>
+                <Text style={styles.body}>{suggestion.note}</Text>
+              </View>
+              {suggestion.alreadyLinked ? (
+                <Pill text="VALIDADO" tone="#067647" />
+              ) : (
+                <Pressable disabled={validatingRelationshipId === suggestion.targetCaseId} onPress={() => approveRelationship(suggestion.targetCaseId, suggestion.relationshipType)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, validatingRelationshipId === suggestion.targetCaseId && styles.disabled]}>
+                  <Text style={styles.secondaryButtonText}>{validatingRelationshipId === suggestion.targetCaseId ? "Validando..." : "Validar"}</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
         </Panel>
 
         <Panel title="Alta regulatoria">
-          {["Situacao final registrada", "Documento de decisao anexado", "Valor final atualizado", "Prazos encerrados", "Responsavel confirmou"].map((label) => (
-            <View key={label} style={styles.checkRow}>
-              <Text style={styles.checkbox}>□</Text>
-              <Text style={styles.itemTitle}>{label}</Text>
+          {(item.closureChecklist?.items ?? [
+            { key: "finalSituationRegistered", label: "situacao final registrada", done: false },
+            { key: "decisionDocumentAttached", label: "decisao/documento anexado", done: false },
+            { key: "finalAmountUpdated", label: "valor final atualizado", done: false },
+            { key: "obligationsCompleted", label: "obrigacoes cumpridas", done: false },
+            { key: "deadlinesClosed", label: "prazos encerrados", done: false },
+            { key: "responsibleConfirmed", label: "responsavel confirmou", done: false },
+            { key: "historyComplete", label: "historico completo", done: false }
+          ]).map((check) => (
+            <View key={check.key} style={styles.checkRow}>
+              <Text style={styles.checkbox}>{check.done ? "✓" : "□"}</Text>
+              <Text style={styles.itemTitle}>{check.label}</Text>
             </View>
           ))}
+          <Pressable disabled={confirmingClosure} onPress={submitClosureConfirmation} style={({ pressed }) => [styles.secondaryButton, styles.inlineButton, pressed && styles.pressed, confirmingClosure && styles.disabled]}>
+            <Text style={styles.secondaryButtonText}>{confirmingClosure ? "Confirmando..." : "Confirmar responsavel"}</Text>
+          </Pressable>
+          <Pill text={item.closureChecklist?.readyToClose ? "PRONTO PARA ENCERRAR" : "ALTA INCOMPLETA"} tone={item.closureChecklist?.readyToClose ? "#067647" : "#b76e00"} />
         </Panel>
       </View>
 
@@ -238,7 +379,8 @@ export default function CaseDetailScreen() {
           <View key={deadline.id} style={styles.listRow}>
             <View style={styles.flex}>
               <Text style={styles.itemTitle}>{deadline.type}</Text>
-              <Text style={styles.muted}>vence {deadline.dueDate} · {deadline.status} · base {deadline.basis}</Text>
+              <Text style={styles.muted}>vence {deadline.dueDate} · {deadline.status} · alerta {deadline.alertLevel ?? "MONITORING"}</Text>
+              <Text style={styles.muted}>base {deadline.basis} · inicio {deadline.startEvent || "nao informado"} · duracao {deadline.duration || "a validar"}</Text>
             </View>
             <View style={styles.statusArea}>
               <Pill text={`${deadline.daysLeft} dias`} tone={deadline.daysLeft <= 3 ? "#b42318" : "#b76e00"} />
@@ -312,13 +454,43 @@ export default function CaseDetailScreen() {
       </Panel>
 
       <Panel title="Acoes">
+        <View style={styles.deadlineForm}>
+          <TextInput value={actionTitle} onChangeText={setActionTitle} style={[styles.input, styles.documentInput]} placeholder="Acao operacional" placeholderTextColor="#98a2b3" />
+          <TextInput value={actionPriority} onChangeText={(value) => setActionPriority(value === "HIGH" || value === "LOW" ? value : "MEDIUM")} style={styles.documentTypeInput} placeholder="Prioridade" placeholderTextColor="#98a2b3" />
+          <TextInput value={actionDueDate} onChangeText={setActionDueDate} style={styles.dateInput} placeholder="YYYY-MM-DD" placeholderTextColor="#98a2b3" />
+          <Pressable disabled={creatingAction} onPress={addAction} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed, creatingAction && styles.disabled]}>
+            <Text style={styles.statusButtonText}>{creatingAction ? "Criando..." : "Criar acao"}</Text>
+          </Pressable>
+        </View>
         {item.actions.map((action) => (
           <View key={action.id} style={styles.listRow}>
             <View style={styles.flex}>
               <Text style={styles.itemTitle}>{action.title}</Text>
-              <Text style={styles.muted}>{action.priority} · {action.dueDate}</Text>
+              <Text style={styles.muted}>{action.priority} · {action.dueDate || "sem prazo"} · {action.responsible ?? "Nao definido"}</Text>
+              {action.completedAt ? <Text style={styles.muted}>concluida em {action.completedAt}</Text> : null}
             </View>
             <Pill text={action.status} tone={action.priority === "HIGH" ? "#b42318" : "#175cd3"} />
+          </View>
+        ))}
+      </Panel>
+
+      <Panel title="Prevencao">
+        <View style={styles.noteForm}>
+          <TextInput value={causeCategory} onChangeText={(value) => setCauseCategory(isPreventionCategory(value) ? value : "UNKNOWN")} style={styles.input} placeholder="Categoria da causa" placeholderTextColor="#98a2b3" />
+          <TextInput value={causeDescription} onChangeText={setCauseDescription} style={[styles.input, styles.noteInput]} multiline placeholder="Causa raiz" placeholderTextColor="#98a2b3" />
+          <TextInput value={correctiveAction} onChangeText={setCorrectiveAction} style={[styles.input, styles.noteInput]} multiline placeholder="Acao corretiva" placeholderTextColor="#98a2b3" />
+          <TextInput value={preventionPlan} onChangeText={setPreventionPlan} style={[styles.input, styles.noteInput]} multiline placeholder="Plano preventivo" placeholderTextColor="#98a2b3" />
+          <Pressable disabled={creatingPrevention} onPress={submitPrevention} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed, creatingPrevention && styles.disabled]}>
+            <Text style={styles.statusButtonText}>{creatingPrevention ? "Registrando..." : "Registrar prevencao"}</Text>
+          </Pressable>
+        </View>
+        {item.preventions.length === 0 ? <Text style={styles.body}>Nenhuma analise de causa registrada.</Text> : null}
+        {item.preventions.map((prevention) => (
+          <View key={prevention.id} style={styles.noteRow}>
+            <Text style={styles.itemTitle}>{prevention.causeCategory} · {prevention.createdAt}</Text>
+            <Text style={styles.body}>Causa: {prevention.causeDescription}</Text>
+            <Text style={styles.body}>Acao corretiva: {prevention.correctiveAction}</Text>
+            <Text style={styles.body}>Prevencao: {prevention.preventionPlan}</Text>
           </View>
         ))}
       </Panel>
@@ -411,6 +583,8 @@ const styles = StyleSheet.create({
   statusArea: { alignItems: "flex-end", gap: 8 },
   secondaryButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#175cd3", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   secondaryButtonText: { color: "#175cd3", fontWeight: "900", fontSize: 12 },
+  inlineButton: { alignSelf: "flex-start", marginTop: 10 },
+  relationRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f2f4f7" },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.55 },
   listRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1 },

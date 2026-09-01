@@ -1,4 +1,6 @@
 const { organizationId, sendJson, withClient } = require("../../_db");
+const { recordAuditLog } = require("../../_auditLogger");
+const { calculateRiskAssessment } = require("../../_riskEngine");
 
 function mapCase(row) {
   return {
@@ -68,6 +70,17 @@ async function createCase(req, res) {
     try {
       const sequence = await client.query("select count(*)::int + 1 as next from regulatory_cases where organization_id = $1", [orgId]);
       const caseNumber = `AC-${new Date().getFullYear()}-${String(sequence.rows[0].next).padStart(3, "0")}`;
+      const repetitions = await client.query(
+        "select count(*)::int as count from regulatory_cases where organization_id = $1 and category ilike $2",
+        [orgId, `%${category}%`]
+      );
+      const risk = calculateRiskAssessment({
+        category,
+        amount,
+        deadlineDays: 2,
+        repetitions: repetitions.rows[0].count,
+        status: "RECEIVED"
+      });
       const created = await client.query(
         `
         insert into regulatory_cases (
@@ -75,15 +88,40 @@ async function createCase(req, res) {
           event_date, received_at, amount, status, risk_score, risk_level, vehicle_plate,
           rntrc, authority, source
         )
-        values ($1, $2, $3, $4, $5, $6, current_date, current_date, $7, 'RECEIVED', 0, 'LOW', $8, $9, 'ANTT', 'WEB')
+        values ($1, $2, $3, $4, $5, $6, current_date, current_date, $7, 'RECEIVED', $8, $9, $10, $11, 'ANTT', 'WEB')
         returning *
         `,
-        [orgId, caseNumber, infractionNumber, category, subcategory, description, amount, vehiclePlate || null, rntrc || null]
+        [orgId, caseNumber, infractionNumber, category, subcategory, description, amount, risk.score, risk.level, vehiclePlate || null, rntrc || null]
+      );
+      const assessment = await client.query(
+        `
+        insert into risk_assessments (organization_id, case_id, score, level, explanation)
+        values ($1, $2, $3, $4, $5)
+        returning id
+        `,
+        [orgId, created.rows[0].id, risk.score, risk.level, risk.explanation]
+      );
+      for (const factor of risk.factors) {
+        await client.query(
+          "insert into risk_factors (risk_assessment_id, factor, weight, value) values ($1, $2, $3, $4)",
+          [assessment.rows[0].id, factor.factor, factor.weight, factor.value]
+        );
+      }
+      await client.query(
+        "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_CREATED', $3)",
+        [orgId, created.rows[0].id, `Prontuario criado pelo formulario web. RiskEngine calculou ${risk.score}/100 (${risk.level}).`]
       );
       await client.query(
-        "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_CREATED', 'Prontuario criado pelo formulario web.')",
-        [orgId, created.rows[0].id]
+        "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'RISK_ASSESSED', $3)",
+        [orgId, created.rows[0].id, risk.explanation]
       );
+      await recordAuditLog(client, req, {
+        organizationId: orgId,
+        action: "CASE_CREATED",
+        entity: "regulatory_cases",
+        entityId: created.rows[0].id,
+        newValue: { caseNumber, category, amount, riskScore: risk.score, riskLevel: risk.level }
+      });
       await client.query(
         `
         insert into case_actions (organization_id, case_id, title, priority, status, due_date)

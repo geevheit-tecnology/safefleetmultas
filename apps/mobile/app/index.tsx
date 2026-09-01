@@ -30,6 +30,8 @@ export default function DashboardScreen() {
         <InfoCard label="Casos criticos" value={String(dashboard.criticalCases)} tone="#b42318" />
         <InfoCard label="Prazos proximos" value={String(dashboard.upcomingDeadlines)} tone="#b76e00" />
         <InfoCard label="Casos ativos" value={String(dashboard.activeCases)} tone="#175cd3" />
+        <InfoCard label="Prazos vencidos" value={String(dashboard.overdueDeadlines ?? 0)} tone="#b42318" />
+        <InfoCard label="Encerrados" value={String(dashboard.closedCases ?? 0)} />
       </View>
 
       <View style={styles.scorePanel}>
@@ -39,9 +41,15 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.flex}>
           <Text style={styles.sectionTitle}>Indice de maturidade regulatoria</Text>
-          <Text style={styles.body}>Gestao de prazos e documentos exige atencao. Indicador interno, nao certificacao oficial.</Text>
+          <Text style={styles.body}>{dashboard.scoreDisclaimer ?? "Indicador interno, nao certificacao oficial."}</Text>
           <View style={styles.scoreGrid}>
-            {["Prazos 65", "Documentacao 70", "CIOT 55", "Processos 78"].map((item) => <Pill key={item} text={item} />)}
+            <Pill text={`Prazos ${dashboard.scoreComponents?.deadlines ?? 0}`} />
+            <Pill text={`Documentacao ${dashboard.scoreComponents?.documentation ?? 0}`} />
+            <Pill text={`CIOT ${dashboard.scoreComponents?.ciot ?? 0}`} />
+            <Pill text={`Piso minimo ${dashboard.scoreComponents?.floorMinimum ?? 0}`} />
+            <Pill text={`Processos ${dashboard.scoreComponents?.processes ?? 0}`} />
+            <Pill text={`Reincidencia ${dashboard.scoreComponents?.repetition ?? 0}`} />
+            <Pill text={`Prevencao ${dashboard.scoreComponents?.prevention ?? 0}`} />
           </View>
         </View>
       </View>
@@ -90,6 +98,32 @@ export default function DashboardScreen() {
           </View>
         ))}
       </Panel>
+
+      <View style={styles.columns}>
+        <Panel title="Tendencias">
+          {(dashboard.trends ?? []).map((trend) => (
+            <View key={trend.month} style={styles.listRow}>
+              <View style={styles.flex}>
+                <Text style={styles.itemTitle}>{trend.month}</Text>
+                <Text style={styles.muted}>{trend.cases} caso(s) · {money.format(trend.amount)}</Text>
+              </View>
+              <Pill text="MES" />
+            </View>
+          ))}
+        </Panel>
+
+        <Panel title="Alteracoes legislativas">
+          {(dashboard.regulatoryChanges ?? []).map((change) => (
+            <View key={`${change.title}-${change.detectedAt}`} style={styles.listRow}>
+              <View style={styles.flex}>
+                <Text style={styles.itemTitle}>{change.title}</Text>
+                <Text style={styles.muted}>detectado {change.detectedAt}</Text>
+              </View>
+              <Pill text={change.impact} tone={change.impact === "HIGH" ? "#b42318" : "#b76e00"} />
+            </View>
+          ))}
+        </Panel>
+      </View>
     </AppShell>
   );
 }

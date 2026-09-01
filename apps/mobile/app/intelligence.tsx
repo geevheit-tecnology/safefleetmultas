@@ -31,7 +31,10 @@ export default function IntelligenceScreen() {
             <Text style={styles.title}>{summary.preventive.analysisType}</Text>
             <Text style={styles.body}>{summary.preventive.content}</Text>
             <Text style={styles.muted}>Fonte: {summary.preventive.sourceReference}</Text>
-            <Pill text={summary.preventive.provider} tone="#175cd3" />
+            <View style={styles.pills}>
+              <Pill text={summary.preventive.provider} tone="#175cd3" />
+              {summary.protected ? <Pill text="DADOS PROTEGIDOS" tone="#067647" /> : null}
+            </View>
           </Panel>
 
           <Panel title="Analises recentes">
@@ -60,5 +63,6 @@ const styles = StyleSheet.create({
   title: { color: "#101828", fontWeight: "900" },
   body: { color: "#667085", lineHeight: 21, marginTop: 4 },
   muted: { color: "#667085", fontSize: 12, marginTop: 3 },
+  pills: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   error: { color: "#b42318", fontWeight: "800" }
 });

@@ -71,6 +71,19 @@ export default function AdminScreen() {
               </View>
             ))}
           </Panel>
+
+          <Panel title="Auditoria">
+            {(summary.audit ?? []).length === 0 ? <Text style={styles.muted}>Nenhum registro de auditoria carregado.</Text> : null}
+            {(summary.audit ?? []).map((item) => (
+              <View key={`${item.action}-${item.entity}-${item.createdAt}`} style={styles.row}>
+                <View style={styles.flex}>
+                  <Text style={styles.title}>{item.action}</Text>
+                  <Text style={styles.muted}>{item.entity} · {item.createdAt} · user-agent {item.userAgent}</Text>
+                </View>
+                <Pill text="APPEND-ONLY" tone="#067647" />
+              </View>
+            ))}
+          </Panel>
         </>
       ) : null}
     </AppShell>

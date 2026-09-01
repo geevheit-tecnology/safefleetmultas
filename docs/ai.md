@@ -9,6 +9,8 @@ Implementacoes iniciais:
 
 Analises devem usar linguagem de apoio, citar fonte e nunca se apresentar como decisao juridica definitiva.
 
+Antes de retornar conteudo do provider, `assertSafeAiAnalysis` bloqueia frases de resultado juridico definitivo e exige `sourceReference`.
+
 ## Implementacao atual
 
 No preview atual, a camada de IA esta representada por um provider mock isolado em `apps/mobile/api/_aiProvider.js`.
@@ -19,6 +21,7 @@ Recursos implementados:
 - Confirmacao humana altera a extracao para `CONFIRMED`.
 - Analise executiva de apoio grava `ai_analyses`.
 - Inteligencia preventiva consolidada usa agregados internos de `regulatory_cases`.
+- Guard de seguranca impede frases como promessa de ganho de recurso e exige referencia de fonte.
 
 Limites intencionais:
 

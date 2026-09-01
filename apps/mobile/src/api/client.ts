@@ -7,6 +7,33 @@ export type CaseAction = RegulatoryCase["actions"][number] & {
   responsible: string;
 };
 
+export type OperationalSummary = {
+  myQueue: number;
+  todayActions: number;
+  highPriorityActions: number;
+  criticalDeadlines: number;
+  overdueDeadlines: number;
+  pendingDocuments: number;
+  waitingDecision: number;
+  waitingDocuments: number;
+};
+
+export type NotificationSummary = {
+  channels: string[];
+  types: string[];
+  deliveryNote: string;
+  unreadCount: number;
+  items: Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    readAt: string;
+    createdAt: string;
+    channelPlan: Record<string, boolean>;
+  }>;
+};
+
 export type ReportSummary = {
   organizationName: string;
   generatedAt: string;
@@ -31,6 +58,7 @@ export type SecuritySummary = {
   userCount?: number;
   roles: Array<{ id?: string; code: string; name: string; permissionCount: number }>;
   permissions: Array<{ role: string; permission: string; description: string }>;
+  audit?: Array<{ action: string; entity: string; createdAt: string; userAgent: string }>;
   controls: {
     tenantIsolation: string;
     mutationAudit: string;
@@ -42,11 +70,18 @@ export type SecuritySummary = {
 export type LegalDocumentSummary = {
   id: string;
   title: string;
+  number?: string;
+  year?: number;
+  type?: string;
   status: string;
   effective: string;
+  effectiveFrom?: string;
+  effectiveUntil?: string;
   authority: string;
   source: string;
+  sourceHash?: string;
   versions: number;
+  currentVersion?: string;
 };
 
 export type RegulatoryChangeSummary = {
@@ -57,9 +92,58 @@ export type RegulatoryChangeSummary = {
   legalDocument: string;
   detectedAt: string;
   source: string;
+  topic?: string;
+  relatedCases?: number;
+  potentiallyAffected?: number;
+  analysisNote?: string;
+};
+
+export type EffectiveRuleSummary = {
+  occurrenceDate: string;
+  topic: string;
+  sourceRule: string;
+  matches: Array<{
+    id: string;
+    title: string;
+    status: string;
+    authority: string;
+    source: string;
+    versionLabel: string;
+    effectiveFrom: string;
+    effectiveUntil: string;
+    sourceHash: string;
+    content: string;
+  }>;
+};
+
+export type RelationshipSuggestionSummary = {
+  caseId: string;
+  message: string;
+  validationRequired: boolean;
+  suggestions: Array<{
+    targetCaseId: string;
+    targetCaseNumber: string;
+    category: string;
+    status: string;
+    riskScore: number;
+    riskLevel: string;
+    relationshipType: "POSSIBLE_REPETITION" | "RELATED_CASE";
+    reasons: string[];
+    alreadyLinked: boolean;
+    note: string;
+  }>;
+};
+
+export type CreatePreventionInput = {
+  caseId: string;
+  causeCategory: "OPERATIONAL_FAILURE" | "DOCUMENT_FAILURE" | "PROCESS_FAILURE" | "HUMAN_FAILURE" | "SYSTEM_FAILURE" | "THIRD_PARTY" | "UNKNOWN";
+  causeDescription: string;
+  correctiveAction: string;
+  preventionPlan: string;
 };
 
 export type IntelligenceSummary = {
+  protected?: boolean;
   metrics: { totalCases: number; ciotCases: number; highRiskCases: number; averageRiskScore: number };
   preventive: { provider: string; analysisType: string; content: string; sourceReference: string };
   analyses: Array<{ id: string; caseNumber: string; provider: string; analysisType: string; content: string; sourceReference: string; createdAt: string }>;
@@ -163,6 +247,7 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
         { role: "ADMIN", permission: "users.manage", description: "Gerenciar usuarios" },
         { role: "OPERATOR", permission: "cases.manage", description: "Gerenciar prontuarios" }
       ],
+      audit: [],
       controls: {
         tenantIsolation: "Demo local",
         mutationAudit: "Timeline demo",
@@ -201,6 +286,37 @@ export async function listRegulatoryChanges(): Promise<RegulatoryChangeSummary[]
 
   const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/radar`);
   if (!response.ok) throw new Error("Falha ao carregar radar");
+  return response.json();
+}
+
+export async function findEffectiveRule(occurrenceDate: string, topic = ""): Promise<EffectiveRuleSummary> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    return {
+      occurrenceDate,
+      topic,
+      sourceRule: "Demo local: consulta deve respeitar vigencia historica.",
+      matches: [
+        {
+          id: "law-1",
+          title: "Resolucao ANTT sobre CIOT",
+          status: "NOT_VERIFIED",
+          authority: "ANTT",
+          source: "Fonte oficial pendente",
+          versionLabel: "demo-v1",
+          effectiveFrom: "2026-01-10",
+          effectiveUntil: "",
+          sourceHash: "demo-ciot-source",
+          content: "Conteudo demo. Conferencia em fonte oficial obrigatoria antes de uso juridico."
+        }
+      ]
+    };
+  }
+
+  const query = new URLSearchParams({ occurrenceDate });
+  if (topic) query.set("topic", topic);
+  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/effective-rule?${query.toString()}`);
+  if (!response.ok) throw new Error("Falha ao consultar regra vigente");
   return response.json();
 }
 
@@ -303,6 +419,98 @@ export async function createDeadline(input: CreateDeadlineInput): Promise<Regula
     body: JSON.stringify({ action: "create_deadline", ...input })
   });
   if (!response.ok) throw new Error("Falha ao criar prazo");
+  return response.json();
+}
+
+export type CreateActionInput = {
+  caseId: string;
+  title: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  dueDate: string;
+};
+
+export async function createCaseAction(input: CreateActionInput): Promise<RegulatoryCase> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    if (!item) throw new Error("Prontuario nao encontrado");
+    return {
+      ...item,
+      actions: [
+        ...item.actions,
+        {
+          id: `local-action-${Date.now()}`,
+          title: input.title,
+          priority: input.priority,
+          status: "PENDING",
+          dueDate: input.dueDate,
+          responsible: "Nao definido"
+        }
+      ]
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "create_action", ...input })
+  });
+  if (!response.ok) throw new Error("Falha ao criar acao");
+  return response.json();
+}
+
+export async function confirmClosure(caseId: string): Promise<RegulatoryCase> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const item = cases.find((caseItem) => caseItem.id === caseId);
+    if (!item) throw new Error("Prontuario nao encontrado");
+    return {
+      ...item,
+      closureChecklist: {
+        readyToClose: false,
+        items: [
+          { key: "responsibleConfirmed", label: "responsavel confirmou", done: true }
+        ]
+      }
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "confirm_closure", caseId })
+  });
+  if (!response.ok) throw new Error("Falha ao confirmar alta");
+  return response.json();
+}
+
+export async function createPrevention(input: CreatePreventionInput): Promise<RegulatoryCase> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    if (!item) throw new Error("Prontuario nao encontrado");
+    return {
+      ...item,
+      preventions: [
+        {
+          id: `local-prevention-${Date.now()}`,
+          causeCategory: input.causeCategory,
+          causeDescription: input.causeDescription,
+          correctiveAction: input.correctiveAction,
+          preventionPlan: input.preventionPlan,
+          createdAt: new Date().toLocaleString("pt-BR")
+        },
+        ...item.preventions
+      ]
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "create_prevention", ...input })
+  });
+  if (!response.ok) throw new Error("Falha ao registrar prevencao");
   return response.json();
 }
 
@@ -483,6 +691,44 @@ export async function confirmDocumentExtraction(caseId: string, extractionId: st
   return response.json();
 }
 
+export async function suggestRelationships(caseId: string): Promise<RelationshipSuggestionSummary> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    return {
+      caseId,
+      message: "Foram encontradas 0 ocorrencias semelhantes.",
+      validationRequired: true,
+      suggestions: []
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "suggest_relationships", caseId })
+  });
+  if (!response.ok) throw new Error("Falha ao sugerir relacoes");
+  return response.json();
+}
+
+export async function validateRelationship(input: {
+  sourceCaseId: string;
+  targetCaseId: string;
+  relationshipType: "POSSIBLE_REPETITION" | "RELATED_CASE";
+}): Promise<{ id: string; relationshipType: string; validatedAt: string }> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    return { id: `local-relationship-${Date.now()}`, relationshipType: input.relationshipType, validatedAt: new Date().toISOString() };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "validate_relationship", ...input })
+  });
+  if (!response.ok) throw new Error("Falha ao validar relacao");
+  return response.json();
+}
 
 export async function listTasks(): Promise<CaseAction[]> {
   const apiBaseUrl = resolveApiBaseUrl();
@@ -502,7 +748,45 @@ export async function listTasks(): Promise<CaseAction[]> {
   return response.json();
 }
 
-export async function updateTaskStatus(id: string, status: "PENDING" | "IN_PROGRESS" | "DONE"): Promise<CaseAction> {
+export async function getOperationalSummary(): Promise<OperationalSummary> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const openActions = cases.flatMap((item) => item.actions).filter((item) => item.status === "PENDING" || item.status === "IN_PROGRESS");
+    return {
+      myQueue: openActions.length,
+      todayActions: 0,
+      highPriorityActions: openActions.filter((item) => item.priority === "HIGH").length,
+      criticalDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "PENDING" && item.daysLeft <= 3).length,
+      overdueDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "EXPIRED").length,
+      pendingDocuments: cases.filter((item) => item.documents.length === 0).length,
+      waitingDecision: cases.filter((item) => item.status === "DECISION").length,
+      waitingDocuments: cases.filter((item) => item.status === "WAITING_DOCUMENTS").length
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?summary=1`);
+  if (!response.ok) throw new Error("Falha ao carregar dashboard operacional");
+  return response.json();
+}
+
+export async function listNotifications(): Promise<NotificationSummary> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    return {
+      channels: ["in_app", "email", "push", "whatsapp"],
+      types: ["DEADLINE_APPROACHING", "DEADLINE_EXPIRED", "NEW_CASE", "RISK_CHANGED", "DOCUMENT_REQUIRED", "LEGAL_CHANGE", "IMPACT_DETECTED", "ACTION_REQUIRED"],
+      deliveryNote: "Demo local sem envio externo.",
+      unreadCount: 0,
+      items: []
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?notifications=1`);
+  if (!response.ok) throw new Error("Falha ao carregar notificacoes");
+  return response.json();
+}
+
+export async function updateTaskStatus(id: string, status: "PENDING" | "IN_PROGRESS" | "DONE" | "CANCELLED"): Promise<CaseAction> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     const task = await listTasks().then((items) => items.find((item) => item.id === id));
@@ -557,6 +841,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       notes: [],
       decisions: [],
       aiExtractions: [],
+      preventions: [],
       timeline: []
     };
   }
