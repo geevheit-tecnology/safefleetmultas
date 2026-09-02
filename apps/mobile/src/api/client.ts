@@ -202,7 +202,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     if (typeof window !== "undefined") window.localStorage.setItem(authStorageKey, JSON.stringify({ token: "local", user }));
     return user;
   }
-  const response = await fetch(`${apiBaseUrl}/api/v1/auth`, {
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/security?auth=login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ email, password })
@@ -221,7 +221,7 @@ export async function logout(): Promise<void> {
   const token = getAuthToken();
   clearAuthSession();
   if (!apiBaseUrl || !token) return;
-  await fetch(`${apiBaseUrl}/api/v1/auth`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+  await fetch(`${apiBaseUrl}/api/v1/admin/security?auth=logout`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
 }
 
 export async function listCases(): Promise<RegulatoryCase[]> {
