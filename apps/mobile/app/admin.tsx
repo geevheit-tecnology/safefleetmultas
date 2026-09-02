@@ -10,6 +10,7 @@ export default function AdminScreen() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("OPERATOR");
   const [saving, setSaving] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
@@ -29,9 +30,10 @@ export default function AdminScreen() {
     setSaving(true);
     setError(null);
     try {
-      await saveUser({ name, email, role, mode: "create_user" });
+      await saveUser({ name, email, password, role, mode: "create_user" });
       setName("");
       setEmail("");
+      setPassword("");
       setRole("OPERATOR");
       loadSummary();
     } catch (saveError) {
@@ -81,6 +83,7 @@ export default function AdminScreen() {
               <View style={styles.form}>
                 <TextInput value={name} onChangeText={setName} style={[styles.input, styles.nameInput]} placeholder="Nome completo" placeholderTextColor="#98a2b3" />
                 <TextInput value={email} onChangeText={setEmail} style={[styles.input, styles.emailInput]} placeholder="email@empresa.com" placeholderTextColor="#98a2b3" autoCapitalize="none" keyboardType="email-address" />
+                <TextInput value={password} onChangeText={setPassword} style={[styles.input, styles.nameInput]} placeholder="Senha inicial" placeholderTextColor="#98a2b3" secureTextEntry />
                 <View style={styles.roleBar}>
                   {["OPERATOR", "LEGAL", "MANAGER", "VIEWER", "ADMIN"].map((option) => (
                     <Pressable key={option} onPress={() => setRole(option)} style={({ pressed }) => [styles.roleButton, role === option && styles.roleButtonActive, pressed && styles.pressed]}>

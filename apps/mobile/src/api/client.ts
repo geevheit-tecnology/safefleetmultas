@@ -72,8 +72,13 @@ export type SaveUserInput = {
   name: string;
   email: string;
   role: string;
+  password: string;
   mode?: "first_admin" | "create_user";
 };
+
+export type AuthUser = { id: string; name: string; email: string; role: string };
+
+const authStorageKey = "safefleet-auth";
 
 export type LegalDocumentSummary = {
   id: string;
@@ -170,10 +175,59 @@ function resolveApiBaseUrl(): string | undefined {
   return "";
 }
 
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(authStorageKey);
+    if (!stored) return null;
+    return (JSON.parse(stored) as { token?: string }).token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAuthSession() {
+  if (typeof window !== "undefined") window.localStorage.removeItem(authStorageKey);
+}
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const user = { id: "local-admin", name: "Admin Local", email, role: "ADMIN" };
+    if (typeof window !== "undefined") window.localStorage.setItem(authStorageKey, JSON.stringify({ token: "local", user }));
+    return user;
+  }
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ email, password })
+  });
+  if (!response.ok) {
+    const payload = await safeJson(response);
+    throw new Error(payload.message || "Falha no login");
+  }
+  const payload = await response.json();
+  if (typeof window !== "undefined") window.localStorage.setItem(authStorageKey, JSON.stringify(payload));
+  return payload.user;
+}
+
+export async function logout(): Promise<void> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  const token = getAuthToken();
+  clearAuthSession();
+  if (!apiBaseUrl || !token) return;
+  await fetch(`${apiBaseUrl}/api/v1/auth`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+}
+
 export async function listCases(): Promise<RegulatoryCase[]> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return cases;
-  const response = await fetch(`${apiBaseUrl}/api/v1/cases`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/cases`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar prontuarios");
   return response.json();
 }
@@ -181,7 +235,7 @@ export async function listCases(): Promise<RegulatoryCase[]> {
 export async function getDashboard() {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return dashboard;
-  const response = await fetch(`${apiBaseUrl}/api/v1/dashboard`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/dashboard`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar dashboard");
   return response.json();
 }
@@ -233,7 +287,7 @@ export async function getReportSummary(): Promise<ReportSummary> {
     };
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/reports/summary`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/reports/summary`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar relatorio");
   return response.json();
 }
@@ -265,7 +319,7 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
     };
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/admin/security`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/security`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar seguranca");
   return response.json();
 }
@@ -275,7 +329,7 @@ export async function saveUser(input: SaveUserInput): Promise<{ ok: boolean }> {
   if (!apiBaseUrl) return { ok: true };
   const response = await fetch(`${apiBaseUrl}/api/v1/admin/security`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(input)
   });
   if (!response.ok) {
@@ -289,7 +343,8 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean }> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return { ok: true };
   const response = await fetch(`${apiBaseUrl}/api/v1/admin/security?userId=${encodeURIComponent(userId)}`, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: authHeaders()
   });
   if (!response.ok) {
     const payload = await safeJson(response);
@@ -315,7 +370,7 @@ export async function listLegalDocuments(): Promise<LegalDocumentSummary[]> {
     ];
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/library`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/library`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar legislacao");
   return response.json();
 }
@@ -328,7 +383,7 @@ export async function listRegulatoryChanges(): Promise<RegulatoryChangeSummary[]
     ];
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/radar`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/radar`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar radar");
   return response.json();
 }
@@ -359,7 +414,7 @@ export async function findEffectiveRule(occurrenceDate: string, topic = ""): Pro
 
   const query = new URLSearchParams({ occurrenceDate });
   if (topic) query.set("topic", topic);
-  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/effective-rule?${query.toString()}`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/regulatory/effective-rule?${query.toString()}`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao consultar regra vigente");
   return response.json();
 }
@@ -384,7 +439,7 @@ export async function getIntelligenceSummary(): Promise<IntelligenceSummary> {
     };
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/intelligence`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/intelligence`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar inteligencia");
   return response.json();
 }
@@ -392,7 +447,7 @@ export async function getIntelligenceSummary(): Promise<IntelligenceSummary> {
 export async function getCase(id: string): Promise<RegulatoryCase | undefined> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) return cases.find((item) => item.id === id);
-  const response = await fetch(`${apiBaseUrl}/api/v1/case?id=${encodeURIComponent(id)}`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/case?id=${encodeURIComponent(id)}`, { headers: authHeaders() });
   if (!response.ok) return undefined;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return undefined;
@@ -422,7 +477,7 @@ export async function updateCaseStatus(id: string, status: CaseStatus, reason: s
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ id, status, reason })
   });
   if (!response.ok) throw new Error("Falha ao atualizar status");
@@ -459,7 +514,7 @@ export async function createDeadline(input: CreateDeadlineInput): Promise<Regula
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "create_deadline", ...input })
   });
   if (!response.ok) throw new Error("Falha ao criar prazo");
@@ -496,7 +551,7 @@ export async function createCaseAction(input: CreateActionInput): Promise<Regula
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "create_action", ...input })
   });
   if (!response.ok) throw new Error("Falha ao criar acao");
@@ -521,7 +576,7 @@ export async function confirmClosure(caseId: string): Promise<RegulatoryCase> {
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "confirm_closure", caseId })
   });
   if (!response.ok) throw new Error("Falha ao confirmar alta");
@@ -551,7 +606,7 @@ export async function createPrevention(input: CreatePreventionInput): Promise<Re
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "create_prevention", ...input })
   });
   if (!response.ok) throw new Error("Falha ao registrar prevencao");
@@ -571,7 +626,7 @@ export async function completeDeadline(caseId: string, deadlineId: string): Prom
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "complete_deadline", caseId, deadlineId })
   });
   if (!response.ok) throw new Error("Falha ao concluir prazo");
@@ -635,7 +690,7 @@ export async function attachDocument(input: AttachDocumentInput): Promise<Regula
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "attach_document", ...input })
   });
   if (!response.ok) throw new Error("Falha ao anexar documento");
@@ -724,7 +779,7 @@ export async function runSmartTriage(input: SmartTriageInput): Promise<Regulator
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "smart_triage", ...input })
   });
   if (!response.ok) throw new Error("Falha ao executar triagem inteligente");
@@ -752,7 +807,7 @@ export async function addNote(caseId: string, body: string): Promise<RegulatoryC
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "add_note", caseId, body })
   });
   if (!response.ok) throw new Error("Falha ao registrar nota");
@@ -790,7 +845,7 @@ export async function registerDecision(input: RegisterDecisionInput): Promise<Re
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "register_decision", ...input })
   });
   if (!response.ok) throw new Error("Falha ao registrar decisao");
@@ -820,7 +875,7 @@ export async function prepareDocumentExtraction(caseId: string, documentId: stri
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "prepare_extraction", caseId, documentId })
   });
   if (!response.ok) throw new Error("Falha ao preparar OCR");
@@ -842,7 +897,7 @@ export async function confirmDocumentExtraction(caseId: string, extractionId: st
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "confirm_extraction", caseId, extractionId })
   });
   if (!response.ok) throw new Error("Falha ao confirmar OCR");
@@ -862,7 +917,7 @@ export async function suggestRelationships(caseId: string): Promise<Relationship
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "suggest_relationships", caseId })
   });
   if (!response.ok) throw new Error("Falha ao sugerir relacoes");
@@ -881,7 +936,7 @@ export async function validateRelationship(input: {
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action: "validate_relationship", ...input })
   });
   if (!response.ok) throw new Error("Falha ao validar relacao");
@@ -901,7 +956,7 @@ export async function listTasks(): Promise<CaseAction[]> {
     );
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/tasks`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/tasks`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar tarefas");
   return response.json();
 }
@@ -922,7 +977,7 @@ export async function getOperationalSummary(): Promise<OperationalSummary> {
     };
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?summary=1`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?summary=1`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar dashboard operacional");
   return response.json();
 }
@@ -939,7 +994,7 @@ export async function listNotifications(): Promise<NotificationSummary> {
     };
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?notifications=1`);
+  const response = await fetch(`${apiBaseUrl}/api/v1/tasks?notifications=1`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Falha ao carregar notificacoes");
   return response.json();
 }
@@ -954,7 +1009,7 @@ export async function updateTaskStatus(id: string, status: "PENDING" | "IN_PROGR
 
   const response = await fetch(`${apiBaseUrl}/api/v1/tasks`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ id, status })
   });
   if (!response.ok) throw new Error("Falha ao atualizar tarefa");
@@ -1006,7 +1061,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
 
   const response = await fetch(`${apiBaseUrl}/api/v1/cases`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(input)
   });
   if (!response.ok) throw new Error("Falha ao criar prontuario");

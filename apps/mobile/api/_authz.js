@@ -17,11 +17,24 @@ const ACTION_PERMISSIONS = {
 };
 
 function actorId(req) {
-  return req.headers["x-user-id"] || req.headers["x-demo-user-id"] || process.env.DEMO_USER_ID || DEMO_ADMIN_USER_ID;
+  if (req.authUserId) return req.authUserId;
+  if (req.headers["x-user-id"]) return req.headers["x-user-id"];
+  if (process.env.ALLOW_DEMO_AUTH === "true") return req.headers["x-demo-user-id"] || process.env.DEMO_USER_ID || DEMO_ADMIN_USER_ID;
+  return null;
 }
 
 async function authorize(client, req, orgId, permission) {
+  await hydrateAuthUser(client, req);
   const userId = actorId(req);
+  if (!userId) {
+    return {
+      ok: false,
+      userId: null,
+      status: 401,
+      error: "unauthorized",
+      message: "Login obrigatorio."
+    };
+  }
   const result = await client.query(
     `
     select u.id, u.name, r.code as role, p.code as permission
@@ -56,4 +69,32 @@ async function authorize(client, req, orgId, permission) {
   };
 }
 
-module.exports = { ACTION_PERMISSIONS, DEMO_ADMIN_USER_ID, actorId, authorize };
+async function hydrateAuthUser(client, req) {
+  if (req.authUserId) return req.authUserId;
+  const authorization = String(req.headers.authorization || "");
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1].trim();
+  if (!/^[a-f0-9]{64}$/i.test(token)) return null;
+  try {
+    const result = await client.query(
+      `
+      select user_id
+      from user_sessions
+      where token_hash = encode(digest($1, 'sha256'), 'hex')
+        and expires_at > now()
+      limit 1
+      `,
+      [token]
+    );
+    if (result.rowCount > 0) {
+      req.authUserId = result.rows[0].user_id;
+      return req.authUserId;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+module.exports = { ACTION_PERMISSIONS, DEMO_ADMIN_USER_ID, actorId, authorize, hydrateAuthUser };

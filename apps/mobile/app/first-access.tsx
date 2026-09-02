@@ -7,6 +7,7 @@ import { tokens } from "../src/ui/tokens";
 export default function FirstAccessScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export default function FirstAccessScreen() {
     setError(null);
     setMessage(null);
     try {
-      await saveUser({ name, email, role: "ADMIN", mode: "first_admin" });
+      await saveUser({ name, email, password, role: "ADMIN", mode: "first_admin" });
       setMessage("Administrador criado. Proximos usuarios devem ser cadastrados pela tela Admin.");
       setTimeout(() => router.replace("/login"), 700);
     } catch (submitError) {
@@ -33,6 +34,7 @@ export default function FirstAccessScreen() {
         <Text style={styles.body}>O primeiro acesso cria obrigatoriamente o ADMIN da organizacao. Depois disso, somente ADMIN pode incluir ou excluir usuarios.</Text>
         <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Nome do administrador" placeholderTextColor="#98a2b3" />
         <TextInput value={email} onChangeText={setEmail} style={styles.input} placeholder="email@empresa.com" placeholderTextColor="#98a2b3" autoCapitalize="none" keyboardType="email-address" />
+        <TextInput value={password} onChangeText={setPassword} style={styles.input} placeholder="Senha inicial" placeholderTextColor="#98a2b3" secureTextEntry />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {message ? <Text style={styles.success}>{message}</Text> : null}
         <Pressable disabled={saving} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, saving && styles.disabled]}>

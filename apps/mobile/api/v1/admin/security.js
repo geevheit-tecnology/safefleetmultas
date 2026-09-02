@@ -2,6 +2,7 @@ const { organizationId, sendJson, withClient } = require("../../_db");
 const { ACTION_PERMISSIONS, actorId, authorize } = require("../../_authz");
 const { recordAuditLog } = require("../../_auditLogger");
 const { maskEmail, privacyNotice } = require("../../_privacy");
+const { ensureAuthSchema, hashPassword } = require("../auth");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
@@ -97,10 +98,14 @@ async function saveUser(req, res) {
   const mode = String(body.mode || "create_user");
   const name = String(body.name || "").trim();
   const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
   const roleCode = String(body.role || (mode === "first_admin" ? "ADMIN" : "")).trim().toUpperCase();
 
   if (!name || !email || !isEmail(email)) {
     return sendJson(res, 400, { error: "validation_error", message: "Nome e e-mail valido sao obrigatorios." });
+  }
+  if (!isStrongPassword(password)) {
+    return sendJson(res, 400, { error: "weak_password", message: "Senha deve ter pelo menos 8 caracteres, letra e numero." });
   }
   if (mode === "first_admin" && roleCode !== "ADMIN") {
     return sendJson(res, 400, { error: "validation_error", message: "Primeiro acesso sempre cria um administrador." });
@@ -109,9 +114,19 @@ async function saveUser(req, res) {
   await withClient(res, async (client) => {
     await client.query("begin");
     try {
+      await ensureAuthSchema(client);
       if (mode === "first_admin") {
-        const hasMembers = await client.query("select 1 from organization_members where organization_id = $1 limit 1", [orgId]);
-        if (hasMembers.rowCount > 0) {
+        const hasCredentials = await client.query(
+          `
+          select 1
+          from organization_members om
+          join user_credentials uc on uc.user_id = om.user_id
+          where om.organization_id = $1 and uc.status = 'ACTIVE'
+          limit 1
+          `,
+          [orgId]
+        );
+        if (hasCredentials.rowCount > 0) {
           await client.query("rollback");
           return sendJson(res, 403, { error: "first_access_closed", message: "Primeiro acesso ja foi realizado. Somente admin pode criar usuarios." });
         }
@@ -149,6 +164,19 @@ async function saveUser(req, res) {
         on conflict (organization_id, user_id) do update set role_id = excluded.role_id
         `,
         [orgId, user.rows[0].id, role.rows[0].id]
+      );
+      const credential = hashPassword(password);
+      await client.query(
+        `
+        insert into user_credentials (user_id, password_hash, password_salt, status)
+        values ($1, $2, $3, 'ACTIVE')
+        on conflict (user_id) do update
+        set password_hash = excluded.password_hash,
+            password_salt = excluded.password_salt,
+            status = 'ACTIVE',
+            updated_at = now()
+        `,
+        [user.rows[0].id, credential.hash, credential.salt]
       );
 
       await recordAuditLog(client, req, {
@@ -317,4 +345,8 @@ function readJson(req) {
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isStrongPassword(value) {
+  return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
 }

@@ -1,10 +1,30 @@
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
+import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Pressable } from "react-native";
+import { login } from "../src/api/client";
 import { tokens } from "../src/ui/tokens";
 
 export default function LoginScreen() {
   const greeting = getGreeting();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await login(email, password);
+      router.replace("/");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Nao foi possivel entrar.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.page}>
@@ -35,15 +55,16 @@ export default function LoginScreen() {
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>E-mail</Text>
-            <TextInput style={styles.input} placeholder="usuario@empresa.com.br" placeholderTextColor="#98a2b3" autoCapitalize="none" />
+            <TextInput value={email} onChangeText={setEmail} style={styles.input} placeholder="usuario@empresa.com.br" placeholderTextColor="#98a2b3" autoCapitalize="none" keyboardType="email-address" />
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Senha</Text>
-            <TextInput style={styles.input} placeholder="senha" placeholderTextColor="#98a2b3" secureTextEntry />
+            <TextInput value={password} onChangeText={setPassword} style={styles.input} placeholder="senha" placeholderTextColor="#98a2b3" secureTextEntry />
           </View>
-          <Link href="/" style={styles.button}>
-            <Text style={styles.buttonText}>Entrar</Text>
-          </Link>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <Pressable disabled={loading} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, loading && styles.disabled]}>
+            <Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text>
+          </Pressable>
           <View style={styles.links}>
             <Link href="/forgot-password" style={styles.link}>Recuperar senha</Link>
             <Link href="/first-access" style={styles.link}>Primeiro acesso</Link>
@@ -95,5 +116,8 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontWeight: "900", textAlign: "center" },
   links: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   link: { color: tokens.colors.primary, fontWeight: "800", textDecorationLine: "none" },
-  note: { color: tokens.colors.muted, fontSize: 12, lineHeight: 18 }
+  note: { color: tokens.colors.muted, fontSize: 12, lineHeight: 18 },
+  error: { color: "#b42318", fontWeight: "800" },
+  pressed: { opacity: 0.82 },
+  disabled: { opacity: 0.55 }
 });

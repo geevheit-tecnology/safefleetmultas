@@ -1,7 +1,8 @@
-import { Link, usePathname } from "expo-router";
+import { Link, router, usePathname } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { logout } from "../api/client";
 import { useLanguage, type MessageKey } from "../i18n";
 import { tokens } from "./tokens";
 
@@ -37,6 +38,10 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   const { language, setLanguage, t } = useLanguage();
   const isWide = width >= 860;
   const primaryNav = isWide ? navItems : mobileNavItems;
+  const signOut = async () => {
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <View style={styles.shell}>
@@ -72,10 +77,10 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
                 </Pressable>
               ))}
             </View>
-            <Link href="/login" style={styles.logoutTop}>
+            <Pressable onPress={signOut} style={styles.logoutTop}>
               <MaterialCommunityIcons name="logout" size={17} color={tokens.colors.danger} />
               <Text style={styles.logoutText}>{t("logout")}</Text>
-            </Link>
+            </Pressable>
           </View>
         </View>
         <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
