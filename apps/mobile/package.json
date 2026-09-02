@@ -1,5 +1,5 @@
 {
-  "name": "@antt-control/mobile",
+  "name": "@safefleet/mobile",
   "private": true,
   "version": "0.1.0",
   "main": "expo-router/entry",
@@ -8,12 +8,14 @@
     "web": "expo start --web --clear",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "node ./tests/domain.test.mjs"
+    "test": "node ./tests/domain.test.mjs",
+    "postexport:web": "node ./scripts/postexport-web.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
     "expo": "^52.0.0",
     "expo-asset": "^11.0.5",
+    "expo-font": "~13.0.4",
     "expo-router": "^4.0.0",
     "pg": "^8.16.3",
     "react": "^18.3.1",

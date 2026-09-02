@@ -21,9 +21,9 @@ export default function IntelligenceScreen() {
       {summary ? (
         <>
           <View style={styles.metrics}>
-            <InfoCard label="Regulatory Score" value={`${Math.round(100 - summary.metrics.averageRiskScore / 2)}/100`} tone="#067647" />
+            <InfoCard label="Indice SafeFleet" value={`${Math.round(100 - summary.metrics.averageRiskScore / 2)}/100`} tone="#067647" />
             <InfoCard label="Casos analisados" value={String(summary.metrics.totalCases)} />
-            <InfoCard label="CIOT" value={String(summary.metrics.ciotCases)} tone="#b76e00" />
+            <InfoCard label="Transporte" value={String(summary.metrics.ciotCases)} tone="#b76e00" />
             <InfoCard label="Alto risco" value={String(summary.metrics.highRiskCases)} tone="#b42318" />
           </View>
 
@@ -32,8 +32,8 @@ export default function IntelligenceScreen() {
             <Text style={styles.body}>{summary.preventive.content}</Text>
             <Text style={styles.muted}>Fonte: {summary.preventive.sourceReference}</Text>
             <View style={styles.pills}>
-              <Pill text={summary.preventive.provider} tone="#175cd3" />
-              {summary.protected ? <Pill text="DADOS PROTEGIDOS" tone="#067647" /> : null}
+              <Pill text={summary.preventive.provider} tone="#5c7fa8" />
+              {summary.protected ? <Pill text="Dados protegidos" tone="#067647" /> : null}
             </View>
           </Panel>
 
@@ -46,7 +46,7 @@ export default function IntelligenceScreen() {
                   <Text style={styles.body}>{item.content}</Text>
                   <Text style={styles.muted}>Fonte: {item.sourceReference} · {item.createdAt}</Text>
                 </View>
-                <Pill text="APOIO" tone="#b76e00" />
+                <Pill text="Apoio" tone="#b76e00" />
               </View>
             ))}
           </Panel>

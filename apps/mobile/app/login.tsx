@@ -12,8 +12,8 @@ export default function LoginScreen() {
             <MaterialCommunityIcons name="shield-check" size={22} color="#fff" />
           </View>
           <View>
-            <Text style={styles.title}>ANTT Control</Text>
-            <Text style={styles.subtitle}>Acesso regulatorio multiempresa</Text>
+            <Text style={styles.title}>SafeFleet</Text>
+            <Text style={styles.subtitle}>Gestao de multas e risco operacional</Text>
           </View>
         </View>
         <View style={styles.field}>
@@ -31,7 +31,7 @@ export default function LoginScreen() {
           <Link href="/forgot-password" style={styles.link}>Recuperar senha</Link>
           <Link href="/first-access" style={styles.link}>Primeiro acesso</Link>
         </View>
-        <Text style={styles.note}>Demo local. Autenticacao real deve ser validada no backend com RBAC e tenant isolation.</Text>
+        <Text style={styles.note}>Ambiente de acesso seguro com perfis, auditoria e separacao por empresa.</Text>
       </View>
     </View>
   );

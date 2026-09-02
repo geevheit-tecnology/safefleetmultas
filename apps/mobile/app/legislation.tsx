@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { findEffectiveRule, listLegalDocuments, type EffectiveRuleSummary, type LegalDocumentSummary } from "../src/api/client";
+import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
 
@@ -12,6 +13,7 @@ export default function LegislationScreen() {
   const [loading, setLoading] = useState(true);
   const [checkingRule, setCheckingRule] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { codeLabel } = useLanguage();
 
   useEffect(() => {
     void listLegalDocuments()
@@ -56,7 +58,7 @@ export default function LegislationScreen() {
               </Text>
               <Text style={styles.muted}>Fonte: {item.source || "fonte oficial pendente"} · Hash: {item.sourceHash || "pendente"}</Text>
             </View>
-            <Pill text={item.status} tone={item.status === "NOT_VERIFIED" ? "#b76e00" : "#067647"} />
+            <Pill text={codeLabel(item.status)} tone={item.status === "NOT_VERIFIED" ? "#b76e00" : "#067647"} />
           </View>
         ))}
       </Panel>
@@ -67,7 +69,7 @@ export default function LegislationScreen() {
             <View key={`norm-${item.id}`} style={styles.ruleRow}>
               <View style={styles.flex}>
                 <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.muted}>{item.type || "tipo nao informado"} · {item.authority} · {item.status}</Text>
+                <Text style={styles.muted}>{item.type || "tipo nao informado"} · {item.authority} · {codeLabel(item.status)}</Text>
                 <Text style={styles.body}>Vigencia {item.effectiveFrom || item.effective}. Historico por versoes preserva a regra aplicavel na data da ocorrencia.</Text>
               </View>
               <Pill text={item.currentVersion ?? "VERSAO"} />
@@ -96,7 +98,7 @@ export default function LegislationScreen() {
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.muted}>{item.versions} versao(oes) · vigente desde {item.effectiveFrom || item.effective} {item.effectiveUntil ? `ate ${item.effectiveUntil}` : "sem fim informado"}</Text>
             </View>
-            <Pill text="HISTORICO" tone="#10243f" />
+            <Pill text="HISTORICO" tone="#405978" />
           </View>
         ))}
       </Panel>
@@ -121,7 +123,7 @@ export default function LegislationScreen() {
                   <Text style={styles.muted}>Fonte: {item.source || "pendente"} · Hash: {item.sourceHash || "pendente"}</Text>
                   <Text style={styles.body}>{item.content}</Text>
                 </View>
-                <Pill text={item.status} tone={item.status === "NOT_VERIFIED" ? "#b76e00" : "#067647"} />
+                <Pill text={codeLabel(item.status)} tone={item.status === "NOT_VERIFIED" ? "#b76e00" : "#067647"} />
               </View>
             ))}
           </View>
@@ -134,17 +136,17 @@ export default function LegislationScreen() {
 const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   columns: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
-  flex: { flex: 1 },
-  title: { color: "#101828", fontWeight: "900" },
-  body: { color: "#667085", lineHeight: 21, marginTop: 4 },
-  muted: { color: "#667085", fontSize: 12, marginTop: 3 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1, minWidth: 0 },
+  flex: { flex: 1, minWidth: 0 },
+  title: { color: "#101828", fontWeight: "900", flexShrink: 1 },
+  body: { color: "#667085", lineHeight: 21, marginTop: 4, flexShrink: 1 },
+  muted: { color: "#667085", fontSize: 12, marginTop: 3, flexShrink: 1 },
   form: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
   input: { minHeight: 42, minWidth: 140, borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 12, color: "#101828", backgroundColor: "#ffffff" },
   topicInput: { minWidth: 180, flex: 1 },
-  button: { minHeight: 42, justifyContent: "center", borderRadius: 8, paddingHorizontal: 14, backgroundColor: "#175cd3" },
+  button: { minHeight: 42, justifyContent: "center", borderRadius: 8, paddingHorizontal: 14, backgroundColor: "#5c7fa8" },
   buttonText: { color: "#ffffff", fontWeight: "900" },
   ruleResult: { gap: 12, marginTop: 14 },
-  ruleRow: { flexDirection: "row", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
+  ruleRow: { flexDirection: "row", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1, minWidth: 0 },
   error: { color: "#b42318", fontWeight: "800" }
 });

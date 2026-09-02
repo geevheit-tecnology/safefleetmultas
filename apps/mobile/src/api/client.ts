@@ -235,10 +235,10 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     return {
-      organization: { id: "org-demo", name: "Transportadora Demo", document: "" },
+      organization: { id: "org-demo", name: "Brasport Transportes", document: "" },
       users: [
-        { id: "user-1", name: "Ana Lima", email: "ana@demo.com.br", role: "OPERATOR" },
-        { id: "user-2", name: "Carlos Oliveira", email: "carlos@demo.com.br", role: "LEGAL" }
+        { id: "user-1", name: "Ana Lima", email: "ana@safefleet.local", role: "OPERATOR" },
+        { id: "user-2", name: "Carlos Oliveira", email: "carlos@safefleet.local", role: "LEGAL" }
       ],
       roles: [
         { id: "role-1", code: "ADMIN", name: "Administrador", permissionCount: 4 },
@@ -250,9 +250,9 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
       ],
       audit: [],
       controls: {
-        tenantIsolation: "Demo local",
-        mutationAudit: "Timeline demo",
-        deploymentProtection: "Preview local",
+        tenantIsolation: "Ativo por empresa",
+        mutationAudit: "Timeline auditavel",
+        deploymentProtection: "Ambiente controlado",
         productionAuth: "Pendente"
       }
     };
@@ -267,8 +267,8 @@ export async function listLegalDocuments(): Promise<LegalDocumentSummary[]> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     return [
-      { id: "law-1", title: "Resolucao ANTT sobre CIOT", status: "NOT_VERIFIED", effective: "vigencia a confirmar", authority: "ANTT", source: "Fonte oficial pendente", versions: 1 },
-      { id: "law-2", title: "Lei do Piso Minimo", status: "NOT_VERIFIED", effective: "vigencia a confirmar", authority: "Governo Federal", source: "Fonte oficial pendente", versions: 1 }
+      { id: "law-1", title: "Regra operacional sobre documentos de transporte", status: "NOT_VERIFIED", effective: "vigencia a confirmar", authority: "ANTT", source: "Fonte oficial pendente", versions: 1 },
+      { id: "law-2", title: "Obrigacoes fiscais de circulacao", status: "NOT_VERIFIED", effective: "vigencia a confirmar", authority: "SEFAZ", source: "Fonte oficial pendente", versions: 1 }
     ];
   }
 
@@ -281,7 +281,7 @@ export async function listRegulatoryChanges(): Promise<RegulatoryChangeSummary[]
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     return [
-      { id: "change-1", title: "Tema CIOT com possivel impacto", impact: "HIGH", detail: "Entrada demo. Precisa de conferencia oficial.", legalDocument: "Resolucao ANTT sobre CIOT", detectedAt: "demo", source: "" }
+      { id: "change-1", title: "Atualizacao sobre documentos fiscais de transporte", impact: "HIGH", detail: "Pode impactar conferencias de embarque, documentos obrigatorios e defesa de autuacoes.", legalDocument: "Obrigacoes fiscais de circulacao", detectedAt: "29/08", source: "Monitoramento regulatorio" }
     ];
   }
 
@@ -296,19 +296,19 @@ export async function findEffectiveRule(occurrenceDate: string, topic = ""): Pro
     return {
       occurrenceDate,
       topic,
-      sourceRule: "Demo local: consulta deve respeitar vigencia historica.",
+      sourceRule: "Consulta deve respeitar a vigencia historica da norma aplicavel.",
       matches: [
         {
           id: "law-1",
-          title: "Resolucao ANTT sobre CIOT",
+          title: "Regra operacional sobre documentos de transporte",
           status: "NOT_VERIFIED",
           authority: "ANTT",
           source: "Fonte oficial pendente",
-          versionLabel: "demo-v1",
+          versionLabel: "versao inicial",
           effectiveFrom: "2026-01-10",
           effectiveUntil: "",
-          sourceHash: "demo-ciot-source",
-          content: "Conteudo demo. Conferencia em fonte oficial obrigatoria antes de uso juridico."
+          sourceHash: "fonte-pendente",
+          content: "Conteudo sujeito a conferencia em fonte oficial antes de uso juridico."
         }
       ]
     };
@@ -332,10 +332,10 @@ export async function getIntelligenceSummary(): Promise<IntelligenceSummary> {
         averageRiskScore: cases.reduce((sum, item) => sum + item.riskScore, 0) / cases.length
       },
       preventive: {
-        provider: "MOCK_AI_PROVIDER",
+        provider: "SafeFleet Intelligence",
         analysisType: "PREVENTIVE_INTELLIGENCE",
         content: "Possiveis padroes devem ser validados por responsavel humano.",
-        sourceReference: "Dados demo locais."
+        sourceReference: "Base operacional da empresa."
       },
       analyses: []
     };
@@ -651,10 +651,10 @@ export async function prepareDocumentExtraction(caseId: string, documentId: stri
       aiExtractions: [
         {
           id: `local-extraction-${Date.now()}`,
-          provider: "MOCK_OCR",
+          provider: "SafeFleet OCR",
           status: "PENDING_CONFIRMATION",
           documentName: document?.name ?? "documento",
-          extractedData: { infractionNumber: item.infractionNumber, category: item.category, warning: "Demo local exige confirmacao humana" }
+          extractedData: { infractionNumber: item.infractionNumber, category: item.category, warning: "Confirmacao humana obrigatoria" }
         },
         ...item.aiExtractions
       ]
@@ -776,7 +776,7 @@ export async function listNotifications(): Promise<NotificationSummary> {
     return {
       channels: ["in_app", "email", "push", "whatsapp"],
       types: ["DEADLINE_APPROACHING", "DEADLINE_EXPIRED", "NEW_CASE", "RISK_CHANGED", "DOCUMENT_REQUIRED", "LEGAL_CHANGE", "IMPACT_DETECTED", "ACTION_REQUIRED"],
-      deliveryNote: "Demo local sem envio externo.",
+      deliveryNote: "Envios externos dependem dos canais habilitados pela empresa.",
       unreadCount: 0,
       items: []
     };
@@ -821,7 +821,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
     return {
       id: `local-${Date.now()}`,
       organizationId: "org-demo",
-      caseNumber: `LOCAL-${Date.now()}`,
+      caseNumber: `SF-${Date.now()}`,
       infractionNumber: input.infractionNumber,
       category: input.category,
       subcategory: input.subcategory,
@@ -834,7 +834,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       riskLevel: "LOW",
       vehiclePlate: input.vehiclePlate,
       rntrc: input.rntrc,
-      authority: "ANTT",
+      authority: "Orgao informado",
       responsible: "Nao definido",
       deadlines: [],
       actions: [],

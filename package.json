@@ -1,8 +1,8 @@
 {
-  "name": "antt-control",
+  "name": "safefleet",
   "private": true,
   "version": "0.1.0",
-  "description": "SaaS web e mobile para gestao de risco regulatorio ANTT.",
+  "description": "SaaS web e mobile para gestao de multas, prazos e risco operacional de frotas.",
   "workspaces": [
     "apps/mobile",
     "packages/*"
@@ -14,11 +14,19 @@
     "ios": "npm --workspace apps/mobile run ios",
     "test": "npm --workspaces --if-present test",
     "typecheck": "cd apps/mobile && npx tsc --noEmit",
-    "web:export": "cd apps/mobile && npx expo export --platform web --clear",
+    "web:export": "cd apps/mobile && npx expo export --platform web --clear && npm run postexport:web",
     "backend:test": "cd backend/api && ./gradlew test",
     "db:migrate": "node infra/scripts/apply-migrations.mjs"
   },
+  "overrides": {
+    "expo-font": "~13.0.4",
+    "tar": "^7.5.22",
+    "postcss": "^8.5.26",
+    "uuid": "^11.1.1",
+    "@xmldom/xmldom": "^0.9.12"
+  },
   "dependencies": {
+    "expo-font": "~13.0.4",
     "pg": "^8.23.0"
   }
 }

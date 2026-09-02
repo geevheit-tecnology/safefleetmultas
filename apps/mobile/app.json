@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "ANTT Control",
-    "slug": "antt-control",
-    "scheme": "anttcontrol",
+    "name": "SafeFleet",
+    "slug": "safefleet",
+    "scheme": "safefleet",
     "platforms": ["ios", "android", "web"],
     "orientation": "portrait",
     "userInterfaceStyle": "light",

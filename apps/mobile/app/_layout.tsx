@@ -1,14 +1,18 @@
 import { Stack } from "expo-router";
+import { LanguageProvider } from "../src/i18n";
 
 export default function RootLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: "#10243f" },
-        headerTintColor: "#fff",
-        headerTitleStyle: { fontWeight: "700" },
-        contentStyle: { backgroundColor: "#f5f7fb" }
-      }}
-    />
+    <LanguageProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          headerStyle: { backgroundColor: "#eef4fb" },
+          headerTintColor: "#26364f",
+          headerTitleStyle: { fontWeight: "700" },
+          contentStyle: { backgroundColor: "#f6f8fb" }
+        }}
+      />
+    </LanguageProvider>
   );
 }

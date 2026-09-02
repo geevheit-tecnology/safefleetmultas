@@ -2,6 +2,7 @@ import { Link } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getOperationalSummary, listNotifications, listTasks, updateTaskStatus, type CaseAction, type NotificationSummary, type OperationalSummary } from "../src/api/client";
+import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
 
@@ -13,6 +14,7 @@ export default function TasksScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const { codeLabel } = useLanguage();
 
   useEffect(() => {
     void load();
@@ -51,14 +53,14 @@ export default function TasksScreen() {
     <AppShell title="Tarefas" subtitle="Minha fila, acoes do dia e documentos pendentes">
       <View style={styles.metrics}>
         <InfoCard label="Pendentes" value={String(actions.filter((item) => item.status === "PENDING").length)} tone="#b42318" />
-        <InfoCard label="Em andamento" value={String(actions.filter((item) => item.status === "IN_PROGRESS").length)} tone="#175cd3" />
+        <InfoCard label="Em andamento" value={String(actions.filter((item) => item.status === "IN_PROGRESS").length)} tone="#5c7fa8" />
         <InfoCard label="Concluidas" value={String(actions.filter((item) => item.status === "DONE").length)} tone="#067647" />
         <InfoCard label="Acoes hoje" value={String(summary?.todayActions ?? 0)} />
         <InfoCard label="Prazos criticos" value={String(summary?.criticalDeadlines ?? 0)} tone="#b42318" />
         <InfoCard label="Docs pendentes" value={String(summary?.pendingDocuments ?? 0)} tone="#b76e00" />
       </View>
       <View style={styles.metrics}>
-        <InfoCard label="Minha fila" value={String(summary?.myQueue ?? actions.length)} tone="#175cd3" />
+        <InfoCard label="Minha fila" value={String(summary?.myQueue ?? actions.length)} tone="#5c7fa8" />
         <InfoCard label="Alta prioridade" value={String(summary?.highPriorityActions ?? 0)} tone="#b42318" />
         <InfoCard label="Aguardando decisao" value={String(summary?.waitingDecision ?? 0)} />
         <InfoCard label="Aguardando docs" value={String(summary?.waitingDocuments ?? 0)} tone="#b76e00" />
@@ -84,7 +86,7 @@ export default function TasksScreen() {
               </Pressable>
             </Link>
             <View style={styles.statusArea}>
-              <Pill text={item.status} tone={item.priority === "HIGH" ? "#b42318" : "#175cd3"} />
+              <Pill text={codeLabel(item.status)} tone={item.priority === "HIGH" ? "#b42318" : "#5c7fa8"} />
               {item.status === "PENDING" ? (
                 <TaskButton label="Iniciar" disabled={updatingId === item.id} onPress={() => changeStatus(item.id, "IN_PROGRESS")} />
               ) : null}
@@ -109,7 +111,7 @@ export default function TasksScreen() {
               <Text style={styles.muted}>{item.type} · {item.createdAt}</Text>
               <Text style={styles.muted}>{item.body}</Text>
             </View>
-            <Pill text={item.readAt ? "LIDA" : "NOVA"} tone={item.readAt ? "#067647" : "#b76e00"} />
+            <Pill text={codeLabel(item.readAt ? "READ" : "NEW")} tone={item.readAt ? "#067647" : "#b76e00"} />
           </View>
         ))}
       </Panel>
@@ -129,18 +131,18 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tab: { minHeight: 34, justifyContent: "center", borderRadius: 8, borderWidth: 1, borderColor: "#d0d5dd", paddingHorizontal: 12 },
-  tabActive: { borderColor: "#175cd3", backgroundColor: "#eff8ff" },
+  tabActive: { borderColor: "#5c7fa8", backgroundColor: "#eef4fb" },
   tabText: { color: "#344054", fontWeight: "900", fontSize: 12 },
-  tabTextActive: { color: "#175cd3" },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
-  flex: { flex: 1 },
-  title: { color: "#101828", fontWeight: "900" },
-  muted: { color: "#667085", fontSize: 12, marginTop: 3 },
+  tabTextActive: { color: "#5c7fa8" },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12, borderTopColor: "#f2f4f7", borderTopWidth: 1, minWidth: 0 },
+  flex: { flex: 1, minWidth: 0 },
+  title: { color: "#101828", fontWeight: "900", flexShrink: 1 },
+  muted: { color: "#667085", fontSize: 12, marginTop: 3, flexShrink: 1 },
   error: { color: "#b42318", fontWeight: "800" },
   channelRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   statusArea: { alignItems: "flex-end", gap: 8 },
-  button: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#175cd3", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  buttonText: { color: "#175cd3", fontWeight: "900", fontSize: 12 },
+  button: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#5c7fa8", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: "#5c7fa8", fontWeight: "900", fontSize: 12 },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.5 }
 });

@@ -51,11 +51,11 @@ export const cases: RegulatoryCase[] = [
   {
     id: "case-001",
     organizationId: "org-demo",
-    caseNumber: "AC-2026-001",
+    caseNumber: "SF-2026-001",
     infractionNumber: "AI-00458/2026",
     category: "CIOT",
     subcategory: "Ausencia de CIOT",
-    description: "Auto recebido para triagem. Legislação e prazo marcados como NOT_VERIFIED ate validacao humana.",
+    description: "Notificacao recebida para triagem. Prazo e base legal aguardam validacao humana antes de qualquer decisao.",
     eventDate: "2026-08-12",
     receivedAt: "2026-08-14",
     amount: 5500,
@@ -73,7 +73,7 @@ export const cases: RegulatoryCase[] = [
       { id: "ac-1", title: "Conferir dados do auto", priority: "HIGH", status: "DONE", dueDate: "2026-08-20" },
       { id: "ac-2", title: "Validar enquadramento legal", priority: "HIGH", status: "IN_PROGRESS", dueDate: "2026-08-29" }
     ],
-    documents: [{ id: "doc-1", name: "auto-infracao-demo.pdf", type: "AUTO_INFRINGEMENT", version: 1, storageKey: "demo/org-demo/case-001/auto.pdf" }],
+    documents: [{ id: "doc-1", name: "auto-infracao-00458.pdf", type: "AUTO_INFRINGEMENT", version: 1, storageKey: "org-demo/case-001/auto.pdf" }],
     notes: [],
     decisions: [],
     aiExtractions: [],
@@ -87,7 +87,7 @@ export const cases: RegulatoryCase[] = [
   {
     id: "case-002",
     organizationId: "org-demo",
-    caseNumber: "AC-2026-002",
+    caseNumber: "SF-2026-002",
     infractionNumber: "AI-00512/2026",
     category: "Piso Minimo",
     subcategory: "Valor abaixo do piso",
@@ -114,7 +114,7 @@ export const cases: RegulatoryCase[] = [
   {
     id: "case-003",
     organizationId: "org-demo",
-    caseNumber: "AC-2026-003",
+    caseNumber: "SF-2026-003",
     category: "Documentacao",
     subcategory: "MDF-e irregular",
     description: "Aguardando decisao externa. Monitoramento sem conclusao juridica automatica.",
@@ -125,11 +125,11 @@ export const cases: RegulatoryCase[] = [
     riskScore: riskThree,
     riskLevel: classifyRisk(riskThree),
     vehiclePlate: "MNO-3E45",
-    authority: "ANTT",
+    authority: "SEFAZ",
     responsible: "Ana Lima",
     deadlines: [{ id: "dl-3", type: "Monitorar decisao", dueDate: "2026-09-13", daysLeft: 15, status: "PENDING", basis: "NOT_VERIFIED" }],
     actions: [{ id: "ac-4", title: "Monitorar publicacao oficial", priority: "LOW", status: "IN_PROGRESS", dueDate: "2026-09-13" }],
-    documents: [{ id: "doc-2", name: "defesa-demo.pdf", type: "DEFENSE", version: 1, storageKey: "demo/org-demo/case-003/defesa.pdf" }],
+    documents: [{ id: "doc-2", name: "defesa-mdf-e.pdf", type: "DEFENSE", version: 1, storageKey: "org-demo/case-003/defesa.pdf" }],
     notes: [],
     decisions: [],
     aiExtractions: [],
@@ -140,7 +140,7 @@ export const cases: RegulatoryCase[] = [
 ];
 
 export const dashboard = {
-  organizationName: "Transportadora Demo",
+  organizationName: "Brasport Transportes",
   regulatoryScore: 72,
   scoreComponents: { deadlines: 65, documentation: 70, ciot: 55, floorMinimum: 62, processes: 78, repetition: 68, prevention: 64 },
   scoreDisclaimer: "Indicador interno do sistema; nao representa certificacao oficial.",
@@ -152,5 +152,5 @@ export const dashboard = {
   upcomingDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "PENDING" && item.daysLeft <= 15).length,
   overdueDeadlines: cases.flatMap((item) => item.deadlines).filter((item) => item.status === "EXPIRED").length,
   trends: [{ month: "2026-08", cases: cases.length, amount: cases.reduce((sum, item) => sum + item.amount, 0) }],
-  regulatoryChanges: [{ title: "Tema CIOT com possivel impacto", impact: "HIGH", detectedAt: "29/08" }]
+  regulatoryChanges: [{ title: "Atualizacao sobre documentos fiscais de transporte", impact: "HIGH", detectedAt: "29/08" }]
 };

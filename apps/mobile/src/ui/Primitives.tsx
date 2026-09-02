@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { useLanguage } from "../i18n";
 import { tokens, type RiskTone, type StatusTone } from "./tokens";
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
@@ -32,7 +33,7 @@ export function Input(props: TextInputProps) {
 export function InfoCard({ label, value, tone = "#101828" }: { label: string; value: string; tone?: string }) {
   return (
     <View style={styles.info}>
-      <Text style={styles.muted}>{label}</Text>
+      <Text style={styles.infoLabel}>{label}</Text>
       <Text style={[styles.infoValue, { color: tone }]}>{value}</Text>
     </View>
   );
@@ -43,11 +44,13 @@ export function Badge({ text, tone = tokens.colors.primary }: { text: string; to
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  return <Pill text={status} tone={tokens.status[status as StatusTone] ?? tokens.colors.primary} />;
+  const { codeLabel } = useLanguage();
+  return <Pill text={codeLabel(status)} tone={tokens.status[status as StatusTone] ?? tokens.colors.primary} />;
 }
 
 export function RiskBadge({ level, score }: { level: string; score?: number }) {
-  return <Pill text={score === undefined ? level : `${level} ${score}`} tone={tokens.risk[level as RiskTone] ?? tokens.colors.primary} />;
+  const { codeLabel } = useLanguage();
+  return <Pill text={score === undefined ? codeLabel(level) : `${codeLabel(level)} ${score}`} tone={tokens.risk[level as RiskTone] ?? tokens.colors.primary} />;
 }
 
 export function EmptyState({ text }: { text: string }) {
@@ -62,7 +65,7 @@ export function ErrorState({ text }: { text: string }) {
   return <Text style={styles.error}>{text}</Text>;
 }
 
-export function Pill({ text, tone = "#175cd3" }: { text: string; tone?: string }) {
+export function Pill({ text, tone = "#5c7fa8" }: { text: string; tone?: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: `${tone}18` }]}>
       <Text style={[styles.pillText, { color: tone }]}>{text}</Text>
@@ -96,19 +99,23 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.md,
     borderWidth: tokens.elevation.border,
     borderColor: tokens.colors.border,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     minWidth: tokens.components.cardMinWidth,
     flex: 1,
+    minHeight: 92,
+    justifyContent: "space-between",
     shadowColor: "#101828",
     shadowOpacity: 0.03,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 }
   },
-  infoValue: { fontWeight: "900", fontSize: 19, marginTop: 4 },
-  muted: { color: tokens.colors.muted, fontSize: tokens.typography.caption },
+  infoLabel: { color: tokens.colors.muted, fontSize: tokens.typography.caption, fontWeight: "800", lineHeight: 16, flexShrink: 1 },
+  infoValue: { fontWeight: "900", fontSize: 22, lineHeight: 27, marginTop: 10, flexShrink: 1 },
+  muted: { color: tokens.colors.muted, fontSize: tokens.typography.caption, flexShrink: 1 },
   error: { color: tokens.colors.danger, fontWeight: "800" },
-  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start" },
-  pillText: { fontWeight: "900", fontSize: tokens.typography.tiny },
+  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start", maxWidth: "100%" },
+  pillText: { fontWeight: "900", fontSize: tokens.typography.tiny, flexShrink: 1 },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.55 }
 });

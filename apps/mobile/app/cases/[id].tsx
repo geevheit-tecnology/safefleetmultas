@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
 import { cases, type RegulatoryCase } from "../../src/data/demo";
 import { allowedTransitions, type CaseStatus } from "../../src/domain/workflow";
+import { useLanguage } from "../../src/i18n";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
 
@@ -60,6 +61,7 @@ export default function CaseDetailScreen() {
   const [validatingRelationshipId, setValidatingRelationshipId] = useState<string | null>(null);
   const [confirmingClosure, setConfirmingClosure] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { codeLabel } = useLanguage();
 
   useEffect(() => {
     if (!id) return;
@@ -274,11 +276,11 @@ export default function CaseDetailScreen() {
           <Text style={styles.title}>{item.category} · {item.subcategory}</Text>
           <Text style={styles.body}>{item.description}</Text>
         </View>
-        <Pill text={`${item.riskLevel} ${item.riskScore}/100`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#175cd3"} />
+        <Pill text={`${codeLabel(item.riskLevel)} ${item.riskScore}/100`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#5c7fa8"} />
       </View>
 
       <View style={styles.grid}>
-        <InfoCard label="Status" value={item.status} />
+        <InfoCard label="Status" value={codeLabel(item.status)} />
         <InfoCard label="Valor" value={money.format(item.amount)} tone="#b42318" />
         <InfoCard label="Responsavel" value={item.responsible} />
         <InfoCard label="Placa" value={item.vehiclePlate ?? "nao informado"} />
@@ -300,7 +302,7 @@ export default function CaseDetailScreen() {
         <View style={styles.actionBar}>
           {nextStatuses.map((status) => (
             <Pressable key={status} disabled={updatingStatus !== null} onPress={() => changeStatus(status)} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed, updatingStatus && styles.disabled]}>
-              <Text style={styles.statusButtonText}>{updatingStatus === status ? "Atualizando..." : status}</Text>
+              <Text style={styles.statusButtonText}>{updatingStatus === status ? "Atualizando..." : codeLabel(status)}</Text>
             </Pressable>
           ))}
         </View>
@@ -310,7 +312,7 @@ export default function CaseDetailScreen() {
         <Panel title="Diagnostico">
           <Text style={styles.itemTitle}>RiskEngine</Text>
           <Text style={styles.body}>
-            {item.riskAssessment?.explanation ?? `Score atual ${item.riskScore}/100 (${item.riskLevel}).`}
+            {item.riskAssessment?.explanation ?? `Score atual ${item.riskScore}/100 (${codeLabel(item.riskLevel)}).`}
           </Text>
           {item.riskAssessment?.factors?.map((factor) => (
             <Text key={factor.factor} style={styles.muted}>
@@ -318,7 +320,7 @@ export default function CaseDetailScreen() {
             </Text>
           ))}
           <Text style={styles.itemTitle}>Base regulatoria</Text>
-          <Text style={styles.body}>Fontes oficiais ainda nao verificadas neste ambiente. Qualquer prazo ou enquadramento fica como NOT_VERIFIED ate validacao humana.</Text>
+          <Text style={styles.body}>Fontes oficiais ainda nao verificadas neste ambiente. Qualquer prazo ou enquadramento fica como {codeLabel("NOT_VERIFIED")} ate validacao humana.</Text>
           <Text style={styles.itemTitle}>Reincidencia</Text>
           <Text style={styles.body}>Possivel ocorrencia relacionada por tema. Nao e conclusao juridica automatica.</Text>
           <Pressable disabled={loadingRelationships} onPress={loadRelationshipSuggestions} style={({ pressed }) => [styles.secondaryButton, styles.inlineButton, pressed && styles.pressed, loadingRelationships && styles.disabled]}>
@@ -329,7 +331,7 @@ export default function CaseDetailScreen() {
             <View key={suggestion.targetCaseId} style={styles.relationRow}>
               <View style={styles.flex}>
                 <Text style={styles.itemTitle}>{suggestion.targetCaseNumber} · {suggestion.relationshipType}</Text>
-                <Text style={styles.muted}>{suggestion.category} · risco {suggestion.riskLevel} {suggestion.riskScore}/100 · motivos: {suggestion.reasons.join(", ") || "padrao geral"}</Text>
+                <Text style={styles.muted}>{suggestion.category} · risco {codeLabel(suggestion.riskLevel)} {suggestion.riskScore}/100 · motivos: {suggestion.reasons.join(", ") || "padrao geral"}</Text>
                 <Text style={styles.body}>{suggestion.note}</Text>
               </View>
               {suggestion.alreadyLinked ? (
@@ -379,8 +381,8 @@ export default function CaseDetailScreen() {
           <View key={deadline.id} style={styles.listRow}>
             <View style={styles.flex}>
               <Text style={styles.itemTitle}>{deadline.type}</Text>
-              <Text style={styles.muted}>vence {deadline.dueDate} · {deadline.status} · alerta {deadline.alertLevel ?? "MONITORING"}</Text>
-              <Text style={styles.muted}>base {deadline.basis} · inicio {deadline.startEvent || "nao informado"} · duracao {deadline.duration || "a validar"}</Text>
+              <Text style={styles.muted}>vence {deadline.dueDate} · {codeLabel(deadline.status)} · alerta {codeLabel(deadline.alertLevel ?? "MONITORING")}</Text>
+              <Text style={styles.muted}>base {codeLabel(deadline.basis)} · inicio {deadline.startEvent || "nao informado"} · duracao {deadline.duration || "a validar"}</Text>
             </View>
             <View style={styles.statusArea}>
               <Pill text={`${deadline.daysLeft} dias`} tone={deadline.daysLeft <= 3 ? "#b42318" : "#b76e00"} />
@@ -469,7 +471,7 @@ export default function CaseDetailScreen() {
               <Text style={styles.muted}>{action.priority} · {action.dueDate || "sem prazo"} · {action.responsible ?? "Nao definido"}</Text>
               {action.completedAt ? <Text style={styles.muted}>concluida em {action.completedAt}</Text> : null}
             </View>
-            <Pill text={action.status} tone={action.priority === "HIGH" ? "#b42318" : "#175cd3"} />
+            <Pill text={codeLabel(action.status)} tone={action.priority === "HIGH" ? "#b42318" : "#5c7fa8"} />
           </View>
         ))}
       </Panel>
@@ -513,7 +515,7 @@ export default function CaseDetailScreen() {
               <Text style={styles.muted}>{doc.type} · v{doc.version} · {doc.storageKey}</Text>
             </View>
             <View style={styles.statusArea}>
-              <Pill text="S3 KEY" tone="#10243f" />
+              <Pill text={codeLabel("S3_KEY")} tone="#405978" />
               <Pressable disabled={extractingDocumentId === doc.id} onPress={() => prepareExtraction(doc.id)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, extractingDocumentId === doc.id && styles.disabled]}>
                 <Text style={styles.secondaryButtonText}>{extractingDocumentId === doc.id ? "Preparando..." : "Preparar OCR"}</Text>
               </Pressable>
@@ -530,9 +532,9 @@ export default function CaseDetailScreen() {
             <View style={styles.listRowFlat}>
               <View style={styles.flex}>
                 <Text style={styles.itemTitle}>{extraction.documentName}</Text>
-                <Text style={styles.muted}>{extraction.provider} · {extraction.status}</Text>
+                <Text style={styles.muted}>{extraction.provider} · {codeLabel(extraction.status)}</Text>
               </View>
-              <Pill text={extraction.status} tone={extraction.status === "CONFIRMED" ? "#067647" : "#b76e00"} />
+              <Pill text={codeLabel(extraction.status)} tone={extraction.status === "CONFIRMED" ? "#067647" : "#b76e00"} />
             </View>
             <Text style={styles.body}>{JSON.stringify(extraction.extractedData)}</Text>
             {extraction.status !== "CONFIRMED" ? (
@@ -554,17 +556,17 @@ export default function CaseDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e4e7ec", padding: 18, gap: 12, flexDirection: "row", alignItems: "flex-start" },
-  caseNumber: { color: "#175cd3", fontWeight: "900", fontSize: 13 },
+  hero: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e4e7ec", padding: 18, gap: 12, flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap" },
+  caseNumber: { color: "#5c7fa8", fontWeight: "900", fontSize: 13 },
   title: { color: "#101828", fontSize: 24, fontWeight: "900" },
   body: { color: "#667085", lineHeight: 20 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   columns: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   timelineRow: { flexDirection: "row", gap: 12, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
   timelineDate: { width: 74, color: "#344054", fontWeight: "800", fontSize: 12 },
-  flex: { flex: 1 },
-  itemTitle: { color: "#101828", fontWeight: "800" },
-  muted: { color: "#667085", fontSize: 12 },
+  flex: { flex: 1, minWidth: 0 },
+  itemTitle: { color: "#101828", fontWeight: "800", flexShrink: 1 },
+  muted: { color: "#667085", fontSize: 12, flexShrink: 1 },
   error: { color: "#b42318", fontWeight: "800" },
   input: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 12, minHeight: 44, color: "#101828", backgroundColor: "#fff" },
   actionBar: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
@@ -578,17 +580,17 @@ const styles = StyleSheet.create({
   noteInput: { minHeight: 86, alignSelf: "stretch", paddingTop: 12, textAlignVertical: "top" },
   decisionNotesInput: { minWidth: 220, flex: 1 },
   dateInput: { width: 132 },
-  statusButton: { minHeight: 38, borderRadius: 8, backgroundColor: "#175cd3", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  statusButton: { minHeight: 38, borderRadius: 8, backgroundColor: "#5c7fa8", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   statusButtonText: { color: "#fff", fontWeight: "900", fontSize: 12 },
   statusArea: { alignItems: "flex-end", gap: 8 },
-  secondaryButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#175cd3", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  secondaryButtonText: { color: "#175cd3", fontWeight: "900", fontSize: 12 },
+  secondaryButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#5c7fa8", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  secondaryButtonText: { color: "#5c7fa8", fontWeight: "900", fontSize: 12 },
   inlineButton: { alignSelf: "flex-start", marginTop: 10 },
-  relationRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f2f4f7" },
+  relationRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f2f4f7", minWidth: 0 },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.55 },
-  listRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
-  listRowFlat: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  listRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1, minWidth: 0 },
+  listRowFlat: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minWidth: 0 },
   noteRow: { gap: 4, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8 },
   checkbox: { color: "#667085", fontSize: 18, fontWeight: "900" }

@@ -2,12 +2,13 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { createCase } from "../src/api/client";
+import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { Panel, Pill } from "../src/ui/Primitives";
 
 export default function NewCaseScreen() {
   const [infractionNumber, setInfractionNumber] = useState("");
-  const [category, setCategory] = useState("CIOT");
+  const [category, setCategory] = useState("Transporte");
   const [subcategory, setSubcategory] = useState("");
   const [description, setDescription] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
@@ -15,6 +16,7 @@ export default function NewCaseScreen() {
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { codeLabel } = useLanguage();
 
   const submit = async () => {
     if (!infractionNumber.trim() || !category.trim()) {
@@ -43,10 +45,10 @@ export default function NewCaseScreen() {
   };
 
   return (
-    <AppShell title="Novo auto" subtitle="Entrada estruturada com confirmacao humana antes de gravar dados criticos">
+    <AppShell title="Nova multa" subtitle="Entrada estruturada para qualquer orgao fiscalizador, com confirmacao humana antes de gravar dados criticos">
       <Panel title="Captura do documento">
         <View style={styles.uploadBox}>
-          <Text style={styles.uploadTitle}>Fotografar ou anexar auto</Text>
+          <Text style={styles.uploadTitle}>Fotografar ou anexar documento</Text>
           <Text style={styles.body}>PDF, JPG ou PNG. A integracao de armazenamento fica preparada para o proximo ciclo.</Text>
           <Pill text="OCR preparado · exige confirmacao humana" tone="#b76e00" />
         </View>
@@ -54,8 +56,8 @@ export default function NewCaseScreen() {
 
       <Panel title="Dados iniciais">
         <View style={styles.formGrid}>
-          <Field label="Numero do auto" value={infractionNumber} onChangeText={setInfractionNumber} placeholder="AI-000000/2026" />
-          <Field label="Categoria" value={category} onChangeText={setCategory} placeholder="CIOT, RNTRC, Vale-pedagio" />
+          <Field label="Numero do documento" value={infractionNumber} onChangeText={setInfractionNumber} placeholder="AI-000000/2026" />
+          <Field label="Categoria" value={category} onChangeText={setCategory} placeholder="Transporte, fiscal, trabalhista, transito" />
           <Field label="Subcategoria" value={subcategory} onChangeText={setSubcategory} placeholder="Descricao operacional" />
           <Field label="Placa" value={vehiclePlate} onChangeText={setVehiclePlate} placeholder="ABC-1D23" autoCapitalize="characters" />
           <Field label="RNTRC" value={rntrc} onChangeText={setRntrc} placeholder="00000000" keyboardType="numeric" />
@@ -81,7 +83,7 @@ export default function NewCaseScreen() {
       </Panel>
 
       <Panel title="Regras de seguranca">
-        <Text style={styles.body}>Nenhuma legislacao, prazo ou dado extraido por IA deve ser aceito sem validacao humana. Fontes nao confirmadas ficam como NOT_VERIFIED.</Text>
+        <Text style={styles.body}>Nenhuma norma, prazo ou dado extraido por IA deve ser aceito sem validacao humana. Fontes nao confirmadas ficam como {codeLabel("NOT_VERIFIED")}.</Text>
       </Panel>
     </AppShell>
   );
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 96, paddingTop: 12, textAlignVertical: "top" },
   error: { color: "#b42318", fontWeight: "800", marginTop: 12 },
   actions: { alignItems: "flex-end", marginTop: 16 },
-  primaryButton: { backgroundColor: "#175cd3", borderRadius: 8, minHeight: 44, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  primaryButton: { backgroundColor: "#5c7fa8", borderRadius: 8, minHeight: 44, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
   primaryButtonText: { color: "#fff", fontWeight: "900" },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.6 }

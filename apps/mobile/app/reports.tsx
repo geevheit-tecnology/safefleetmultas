@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { getReportSummary, type ReportSummary } from "../src/api/client";
+import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
 
@@ -9,6 +10,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 export default function ReportsScreen() {
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { codeLabel } = useLanguage();
 
   useEffect(() => {
     void getReportSummary()
@@ -35,12 +37,12 @@ export default function ReportsScreen() {
               {report.overview.totalCases} prontuarios registrados, {report.overview.closedCases} encerrados, {report.deadlines.pending} prazos pendentes,
               {" "}{report.deadlines.overdue} vencidos e {report.deadlines.upcoming} nos proximos 15 dias.
             </Text>
-            <Pill text={`Gerado ${new Date(report.generatedAt).toLocaleString("pt-BR")}`} tone="#175cd3" />
+            <Pill text={`Gerado ${new Date(report.generatedAt).toLocaleString("pt-BR")}`} tone="#5c7fa8" />
           </Panel>
 
           <View style={styles.columns}>
-            <BreakdownPanel title="Por status" rows={report.byStatus} />
-            <BreakdownPanel title="Por risco" rows={report.byRisk} />
+            <BreakdownPanel title="Por status" rows={report.byStatus} formatLabel={codeLabel} />
+            <BreakdownPanel title="Por risco" rows={report.byRisk} formatLabel={codeLabel} />
             <BreakdownPanel title="Por categoria" rows={report.byCategory} />
           </View>
 
@@ -62,14 +64,14 @@ export default function ReportsScreen() {
   );
 }
 
-function BreakdownPanel({ title, rows }: { title: string; rows: Array<{ label: string; count: number; amount: number }> }) {
+function BreakdownPanel({ title, rows, formatLabel = (label: string) => label }: { title: string; rows: Array<{ label: string; count: number; amount: number }>; formatLabel?: (label: string) => string }) {
   return (
     <Panel title={title}>
       {rows.length === 0 ? <Text style={styles.body}>Sem dados.</Text> : null}
       {rows.map((item) => (
         <View key={item.label} style={styles.row}>
           <View style={styles.flex}>
-            <Text style={styles.title}>{item.label}</Text>
+            <Text style={styles.title}>{formatLabel(item.label)}</Text>
             <Text style={styles.muted}>{item.count} prontuario(s)</Text>
           </View>
           <Text style={styles.amount}>{money.format(item.amount)}</Text>
