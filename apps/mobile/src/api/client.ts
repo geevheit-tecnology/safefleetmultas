@@ -68,6 +68,13 @@ export type SecuritySummary = {
   };
 };
 
+export type SaveUserInput = {
+  name: string;
+  email: string;
+  role: string;
+  mode?: "first_admin" | "create_user";
+};
+
 export type LegalDocumentSummary = {
   id: string;
   title: string;
@@ -261,6 +268,42 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
   const response = await fetch(`${apiBaseUrl}/api/v1/admin/security`);
   if (!response.ok) throw new Error("Falha ao carregar seguranca");
   return response.json();
+}
+
+export async function saveUser(input: SaveUserInput): Promise<{ ok: boolean }> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) return { ok: true };
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/security`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    const payload = await safeJson(response);
+    throw new Error(payload.message || "Falha ao salvar usuario");
+  }
+  return response.json();
+}
+
+export async function deleteUser(userId: string): Promise<{ ok: boolean }> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) return { ok: true };
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/security?userId=${encodeURIComponent(userId)}`, {
+    method: "DELETE"
+  });
+  if (!response.ok) {
+    const payload = await safeJson(response);
+    throw new Error(payload.message || "Falha ao excluir usuario");
+  }
+  return response.json();
+}
+
+async function safeJson(response: Response): Promise<{ message?: string }> {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
 
 export async function listLegalDocuments(): Promise<LegalDocumentSummary[]> {
