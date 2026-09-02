@@ -1,6 +1,8 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
 import { cases, type RegulatoryCase } from "../../src/data/demo";
 import { allowedTransitions, type CaseStatus } from "../../src/domain/workflow";
@@ -9,6 +11,30 @@ import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const maxDocumentSizeBytes = 15 * 1024 * 1024;
+
+type DocumentPhase = {
+  type: string;
+  label: string;
+  followUp: string;
+};
+
+type SelectedDocument = {
+  name: string;
+  type: string;
+  mimeType: string;
+  sizeBytes: number;
+  uri: string;
+};
+
+const documentPhases: DocumentPhase[] = [
+  { type: "AUTO_INFRACAO", label: "Auto/notificacao", followUp: "Ler campos e validar prazo" },
+  { type: "PROTOCOLO_DEFESA", label: "Protocolo", followUp: "Acompanhar resposta" },
+  { type: "DEFESA", label: "Defesa", followUp: "Monitorar julgamento" },
+  { type: "RECURSO", label: "Recurso", followUp: "Monitorar recurso" },
+  { type: "DECISAO", label: "Decisao", followUp: "Atualizar alta" },
+  { type: "COMPROVANTE", label: "Comprovante", followUp: "Conferir baixa" }
+];
 const preventionCategories = new Set<CreatePreventionInput["causeCategory"]>([
   "OPERATIONAL_FAILURE",
   "DOCUMENT_FAILURE",
@@ -39,8 +65,7 @@ export default function CaseDetailScreen() {
   const [preventionPlan, setPreventionPlan] = useState("");
   const [documentName, setDocumentName] = useState("Auto de infracao digitalizado");
   const [documentType, setDocumentType] = useState("AUTO_INFRACAO");
-  const [documentStorageKey, setDocumentStorageKey] = useState("");
-  const [documentHash, setDocumentHash] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
   const [noteBody, setNoteBody] = useState("");
   const [decisionType, setDecisionType] = useState("DEFERIDO_PARCIAL");
   const [decisionDate, setDecisionDate] = useState("");
@@ -62,6 +87,7 @@ export default function CaseDetailScreen() {
   const [confirmingClosure, setConfirmingClosure] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { codeLabel } = useLanguage();
+  const selectedPhase = documentPhases.find((phase) => phase.type === documentType) ?? documentPhases[0];
 
   useEffect(() => {
     if (!id) return;
@@ -122,23 +148,95 @@ export default function CaseDetailScreen() {
     }
   };
 
+  const setImageDocument = (asset: ImagePicker.ImagePickerAsset, source: "camera" | "gallery") => {
+    const name = asset.fileName ?? `${source}-${Date.now()}.jpg`;
+    setSelectedDocument({
+      name,
+      type: documentType,
+      mimeType: asset.mimeType ?? "image/jpeg",
+      sizeBytes: asset.fileSize ?? 0,
+      uri: asset.uri
+    });
+    if (!documentName.trim() || documentName === "Auto de infracao digitalizado") setDocumentName(name);
+  };
+
+  const takePhoto = async () => {
+    setError(null);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError("Permita acesso a camera para fotografar o documento.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.85,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images
+    });
+    if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "camera");
+  };
+
+  const chooseImage = async () => {
+    setError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      quality: 0.9,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images
+    });
+    if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "gallery");
+  };
+
+  const choosePdf = async () => {
+    setError(null);
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: ["application/pdf"]
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setSelectedDocument({
+        name: asset.name,
+        type: documentType,
+        mimeType: asset.mimeType ?? "application/pdf",
+        sizeBytes: asset.size ?? 0,
+        uri: asset.uri
+      });
+      if (!documentName.trim() || documentName === "Auto de infracao digitalizado") setDocumentName(asset.name);
+    }
+  };
+
   const addDocument = async () => {
+    if (!documentName.trim()) {
+      setError("Informe o nome do documento.");
+      return;
+    }
+    if (selectedDocument && selectedDocument.sizeBytes > maxDocumentSizeBytes) {
+      setError("Documento excede 15MB.");
+      return;
+    }
     setAttachingDocument(true);
     setError(null);
     try {
+      const source = selectedDocument ?? {
+        name: documentName,
+        type: documentType,
+        mimeType: "application/pdf",
+        sizeBytes: 0,
+        uri: `manual://${item.id}/${documentType}/${documentName}`
+      };
       setItem(
         await attachDocument({
           caseId: item.id,
           name: documentName,
           type: documentType,
-          mimeType: "application/pdf",
-          sizeBytes: 0,
-          sha256: documentHash,
-          storageKey: documentStorageKey
+          mimeType: source.mimeType,
+          sizeBytes: source.sizeBytes,
+          sha256: await buildDocumentHash(source.uri),
+          storageKey: buildStorageKey(item.id, documentType, source.name)
         })
       );
-      setDocumentStorageKey("");
-      setDocumentHash("");
+      setDocumentName(defaultDocumentName(documentType));
+      setSelectedDocument(null);
     } catch {
       setError("Nao foi possivel registrar o documento.");
     } finally {
@@ -468,7 +566,7 @@ export default function CaseDetailScreen() {
           <View key={action.id} style={styles.listRow}>
             <View style={styles.flex}>
               <Text style={styles.itemTitle}>{action.title}</Text>
-              <Text style={styles.muted}>{action.priority} · {action.dueDate || "sem prazo"} · {action.responsible ?? "Nao definido"}</Text>
+              <Text style={styles.muted}>{codeLabel(action.priority)} · {action.dueDate || "sem prazo"} · {action.responsible ?? "Nao definido"}</Text>
               {action.completedAt ? <Text style={styles.muted}>concluida em {action.completedAt}</Text> : null}
             </View>
             <Pill text={codeLabel(action.status)} tone={action.priority === "HIGH" ? "#b42318" : "#5c7fa8"} />
@@ -489,7 +587,7 @@ export default function CaseDetailScreen() {
         {item.preventions.length === 0 ? <Text style={styles.body}>Nenhuma analise de causa registrada.</Text> : null}
         {item.preventions.map((prevention) => (
           <View key={prevention.id} style={styles.noteRow}>
-            <Text style={styles.itemTitle}>{prevention.causeCategory} · {prevention.createdAt}</Text>
+            <Text style={styles.itemTitle}>{codeLabel(prevention.causeCategory)} · {prevention.createdAt}</Text>
             <Text style={styles.body}>Causa: {prevention.causeDescription}</Text>
             <Text style={styles.body}>Acao corretiva: {prevention.correctiveAction}</Text>
             <Text style={styles.body}>Prevencao: {prevention.preventionPlan}</Text>
@@ -498,27 +596,57 @@ export default function CaseDetailScreen() {
       </Panel>
 
       <Panel title="Documentos">
+        <Text style={styles.body}>Anexe cada fase no prontuario. Protocolo, defesa, recurso e decisao entram na linha de vida e geram acompanhamento operacional.</Text>
+        <View style={styles.phaseGrid}>
+          {documentPhases.map((phase) => (
+            <Pressable
+              key={phase.type}
+              onPress={() => {
+                setDocumentType(phase.type);
+                setDocumentName(defaultDocumentName(phase.type));
+                setSelectedDocument((current) => (current ? { ...current, type: phase.type } : current));
+              }}
+              style={({ pressed }) => [styles.phaseButton, documentType === phase.type && styles.phaseButtonActive, pressed && styles.pressed]}
+            >
+              <Text style={[styles.phaseButtonText, documentType === phase.type && styles.phaseButtonTextActive]}>{phase.label}</Text>
+              <Text style={[styles.phaseHint, documentType === phase.type && styles.phaseHintActive]}>{phase.followUp}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={styles.documentForm}>
           <TextInput value={documentName} onChangeText={setDocumentName} style={[styles.input, styles.documentInput]} placeholder="Nome do documento" placeholderTextColor="#98a2b3" />
-          <TextInput value={documentType} onChangeText={setDocumentType} style={[styles.input, styles.documentTypeInput]} placeholder="Tipo" placeholderTextColor="#98a2b3" />
-          <TextInput value={documentStorageKey} onChangeText={setDocumentStorageKey} style={[styles.input, styles.documentInput]} placeholder="storage/casos/arquivo.pdf" placeholderTextColor="#98a2b3" />
-          <TextInput value={documentHash} onChangeText={setDocumentHash} style={[styles.input, styles.documentInput]} placeholder="sha256" placeholderTextColor="#98a2b3" />
+          <Pressable onPress={takePhoto} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>Tirar foto</Text>
+          </Pressable>
+          <Pressable onPress={chooseImage} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>Imagem</Text>
+          </Pressable>
+          <Pressable onPress={choosePdf} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>PDF</Text>
+          </Pressable>
           <Pressable disabled={attachingDocument} onPress={addDocument} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed, attachingDocument && styles.disabled]}>
-            <Text style={styles.statusButtonText}>{attachingDocument ? "Registrando..." : "Registrar documento"}</Text>
+            <Text style={styles.statusButtonText}>{attachingDocument ? "Anexando..." : "Anexar no prontuario"}</Text>
           </Pressable>
         </View>
+        {selectedDocument ? (
+          <Text style={styles.muted}>Selecionado: {selectedDocument.name} · {formatBytes(selectedDocument.sizeBytes)} · {selectedPhase.label}</Text>
+        ) : (
+          <Text style={styles.muted}>Sem arquivo selecionado. O registro manual fica marcado no prontuario para posterior conferencia.</Text>
+        )}
         {item.documents.length === 0 ? <Text style={styles.body}>Nenhum documento anexado.</Text> : null}
         {item.documents.map((doc) => (
           <View key={doc.id} style={styles.listRow}>
             <View style={styles.flex}>
               <Text style={styles.itemTitle}>{doc.name}</Text>
-              <Text style={styles.muted}>{doc.type} · v{doc.version} · {doc.storageKey}</Text>
+              <Text style={styles.muted}>{documentTypeLabel(doc.type)} · v{doc.version} · Arquivo protegido</Text>
             </View>
             <View style={styles.statusArea}>
               <Pill text={codeLabel("S3_KEY")} tone="#405978" />
-              <Pressable disabled={extractingDocumentId === doc.id} onPress={() => prepareExtraction(doc.id)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, extractingDocumentId === doc.id && styles.disabled]}>
-                <Text style={styles.secondaryButtonText}>{extractingDocumentId === doc.id ? "Preparando..." : "Preparar OCR"}</Text>
-              </Pressable>
+              {doc.type === "AUTO_INFRACAO" ? (
+                <Pressable disabled={extractingDocumentId === doc.id} onPress={() => prepareExtraction(doc.id)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, extractingDocumentId === doc.id && styles.disabled]}>
+                  <Text style={styles.secondaryButtonText}>{extractingDocumentId === doc.id ? "Preparando..." : "Preparar OCR"}</Text>
+                </Pressable>
+              ) : null}
             </View>
           </View>
         ))}
@@ -536,7 +664,7 @@ export default function CaseDetailScreen() {
               </View>
               <Pill text={codeLabel(extraction.status)} tone={extraction.status === "CONFIRMED" ? "#067647" : "#b76e00"} />
             </View>
-            <Text style={styles.body}>{JSON.stringify(extraction.extractedData)}</Text>
+            <ExtractionData data={extraction.extractedData} />
             {extraction.status !== "CONFIRMED" ? (
               <Pressable disabled={confirmingExtractionId === extraction.id} onPress={() => confirmExtraction(extraction.id)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, confirmingExtractionId === extraction.id && styles.disabled]}>
                 <Text style={styles.secondaryButtonText}>{confirmingExtractionId === extraction.id ? "Confirmando..." : "Confirmar extracao"}</Text>
@@ -553,6 +681,90 @@ export default function CaseDetailScreen() {
       </Panel>
     </AppShell>
   );
+}
+
+function defaultDocumentName(type: string) {
+  const labels: Record<string, string> = {
+    AUTO_INFRACAO: "Auto de infracao digitalizado",
+    PROTOCOLO_DEFESA: "Protocolo de defesa",
+    DEFESA: "Defesa apresentada",
+    RECURSO: "Recurso apresentado",
+    DECISAO: "Decisao recebida",
+    COMPROVANTE: "Comprovante operacional"
+  };
+  return labels[type] ?? "Documento do prontuario";
+}
+
+function documentTypeLabel(type: string) {
+  return documentPhases.find((phase) => phase.type === type)?.label ?? type.replace(/_/g, " ").toLowerCase();
+}
+
+function buildStorageKey(caseId: string, type: string, name: string) {
+  const safeName = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return `cases/${caseId}/${type.toLowerCase()}/${Date.now()}-${safeName || "documento"}`;
+}
+
+async function buildDocumentHash(uri: string) {
+  if (uri.startsWith("manual://")) return pseudoSha256(uri);
+  try {
+    const response = await fetch(uri);
+    const buffer = await response.arrayBuffer();
+    if (globalThis.crypto?.subtle) {
+      const digest = await globalThis.crypto.subtle.digest("SHA-256", buffer);
+      return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+  } catch {
+    return pseudoSha256(uri);
+  }
+  return pseudoSha256(uri);
+}
+
+function pseudoSha256(value: string) {
+  let seed = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    seed ^= value.charCodeAt(index);
+    seed = Math.imul(seed, 0x01000193);
+  }
+  return Array.from({ length: 64 }, (_, index) => ((seed >>> ((index % 4) * 8)) & 0xff).toString(16).padStart(2, "0")).join("");
+}
+
+function formatBytes(size: number) {
+  if (!size) return "tamanho nao informado";
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function ExtractionData({ data }: { data: Record<string, unknown> }) {
+  const entries = Object.entries(data).filter(([key, value]) => key !== "validationRequired" && key !== "notes" && value !== undefined && value !== "");
+  if (entries.length === 0) return <Text style={styles.body}>Sem campos estruturados para exibir.</Text>;
+  return (
+    <View style={styles.extractionGrid}>
+      {entries.map(([key, value]) => (
+        <View key={key} style={styles.extractionCell}>
+          <Text style={styles.extractionLabel}>{fieldLabel(key)}</Text>
+          <Text style={styles.extractionValue}>{String(value)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function fieldLabel(key: string) {
+  const labels: Record<string, string> = {
+    infractionNumber: "Auto",
+    category: "Categoria",
+    subcategory: "Subcategoria",
+    vehiclePlate: "Placa",
+    amount: "Valor",
+    confidence: "Confianca",
+    documentName: "Documento"
+  };
+  return labels[key] ?? key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
 }
 
 const styles = StyleSheet.create({
@@ -572,6 +784,13 @@ const styles = StyleSheet.create({
   actionBar: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   deadlineForm: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
   documentForm: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
+  phaseGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  phaseButton: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, padding: 10, minWidth: 142, flexGrow: 1, backgroundColor: "#fff" },
+  phaseButtonActive: { borderColor: "#5c7fa8", backgroundColor: "#f3f7fb" },
+  phaseButtonText: { color: "#344054", fontWeight: "900", fontSize: 12 },
+  phaseButtonTextActive: { color: "#405978" },
+  phaseHint: { color: "#667085", fontSize: 11, marginTop: 3 },
+  phaseHintActive: { color: "#405978" },
   decisionForm: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
   noteForm: { gap: 10, alignItems: "flex-start" },
   deadlineInput: { minWidth: 190, flex: 1 },
@@ -592,6 +811,10 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1, minWidth: 0 },
   listRowFlat: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minWidth: 0 },
   noteRow: { gap: 4, paddingTop: 10, borderTopColor: "#f2f4f7", borderTopWidth: 1 },
+  extractionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  extractionCell: { borderWidth: 1, borderColor: "#edf1f5", borderRadius: 8, padding: 8, minWidth: 132, backgroundColor: "#fbfcfe" },
+  extractionLabel: { color: "#667085", fontSize: 11, fontWeight: "800" },
+  extractionValue: { color: "#101828", fontSize: 12, fontWeight: "800", marginTop: 2 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8 },
   checkbox: { color: "#667085", fontSize: 18, fontWeight: "900" }
 });

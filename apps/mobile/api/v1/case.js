@@ -4,6 +4,7 @@ const { ACTION_PERMISSIONS, authorize } = require("../_authz");
 const { classifyDeadlineAlert } = require("../_deadlineEngine");
 const { recordOutboxEvent } = require("../_events");
 const { minimizePersonName } = require("../_privacy");
+const { calculateRiskAssessment } = require("../_riskEngine");
 
 const allowedTransitions = {
   RECEIVED: ["TRIAGE"],
@@ -197,6 +198,7 @@ async function handleCaseAction(req, res) {
   if (body.action === "add_note") return addNote(req, res, body);
   if (body.action === "register_decision") return registerDecision(req, res, body);
   if (body.action === "prepare_extraction") return prepareExtraction(req, res, body);
+  if (body.action === "smart_triage") return smartTriage(req, res, body);
   if (body.action === "confirm_extraction") return confirmExtraction(req, res, body);
   if (body.action === "suggest_relationships") return suggestRelationships(req, res, body);
   if (body.action === "validate_relationship") return validateRelationship(req, res, body);
@@ -204,7 +206,7 @@ async function handleCaseAction(req, res) {
 }
 
 function permissionForCaseAction(action) {
-  if (action === "attach_document" || action === "prepare_extraction" || action === "confirm_extraction") return ACTION_PERMISSIONS.upload_document;
+  if (action === "attach_document" || action === "prepare_extraction" || action === "smart_triage" || action === "confirm_extraction") return ACTION_PERMISSIONS.upload_document;
   if (action === "suggest_relationships") return ACTION_PERMISSIONS.read_risk;
   if (action === "validate_relationship") return ACTION_PERMISSIONS.manage_risk;
   if (action === "confirm_closure") return ACTION_PERMISSIONS.close_case;
@@ -596,6 +598,7 @@ async function attachDocument(req, res, body) {
         "insert into case_events (organization_id, case_id, action, description, document_id) values ($1, $2, 'DOCUMENT_ATTACHED', $3, $4)",
         [orgId, caseId, `Documento "${name}" anexado como ${documentType}.`, document.rows[0].id]
       );
+      await recordDocumentLifecycle(client, orgId, caseId, document.rows[0].id, documentType, name);
       await recordOutboxEvent(client, {
         organizationId: orgId,
         aggregateId: caseId,
@@ -754,11 +757,11 @@ async function prepareExtraction(req, res, body) {
         vehiclePlate: row.vehicle_plate,
         rntrc: row.rntrc,
         documentName: row.document_name,
-        warning: "MOCK_OCR: dados de apoio, confirmar manualmente antes de aplicar."
+        warning: "SafeFleet OCR: dados de apoio, confirmar manualmente antes de aplicar."
       };
 
       await client.query(
-        "insert into ai_extractions (organization_id, case_id, document_id, provider, status, extracted_data) values ($1, $2, $3, 'MOCK_OCR', 'PENDING_CONFIRMATION', $4::jsonb)",
+        "insert into ai_extractions (organization_id, case_id, document_id, provider, status, extracted_data) values ($1, $2, $3, 'SafeFleet OCR', 'PENDING_CONFIRMATION', $4::jsonb)",
         [orgId, caseId, documentId, JSON.stringify(extractedData)]
       );
       await client.query(
@@ -770,7 +773,7 @@ async function prepareExtraction(req, res, body) {
         action: "OCR_PREPARED",
         entity: "ai_extractions",
         entityId: documentId,
-        newValue: { provider: "MOCK_OCR", status: "PENDING_CONFIRMATION" }
+        newValue: { provider: "SafeFleet OCR", status: "PENDING_CONFIRMATION" }
       });
 
       const payload = await loadCase(client, orgId, caseId);
@@ -781,6 +784,234 @@ async function prepareExtraction(req, res, body) {
       throw error;
     }
   });
+}
+
+async function recordDocumentLifecycle(client, orgId, caseId, documentId, documentType, name) {
+  const stage = documentStage(documentType);
+  if (!stage) return;
+
+  await client.query(
+    "insert into case_events (organization_id, case_id, action, description, document_id) values ($1, $2, $3, $4, $5)",
+    [orgId, caseId, stage.eventAction, `${stage.eventDescription}: "${name}".`, documentId]
+  );
+
+  const exists = await client.query(
+    "select id from case_actions where organization_id = $1 and case_id = $2 and title = $3 and status in ('PENDING', 'IN_PROGRESS') limit 1",
+    [orgId, caseId, stage.actionTitle]
+  );
+  if (exists.rowCount > 0) return;
+
+  await client.query(
+    `
+    insert into case_actions (organization_id, case_id, title, priority, status, due_date)
+    values ($1, $2, $3, $4, 'PENDING', current_date + ($5::int * interval '1 day'))
+    `,
+    [orgId, caseId, stage.actionTitle, stage.priority, stage.days]
+  );
+}
+
+function documentStage(documentType) {
+  const stages = {
+    PROTOCOLO_DEFESA: {
+      eventAction: "DEFENSE_PROTOCOL_ATTACHED",
+      eventDescription: "Protocolo de defesa anexado ao prontuario",
+      actionTitle: "Acompanhar resposta do protocolo de defesa",
+      priority: "HIGH",
+      days: 3
+    },
+    DEFESA: {
+      eventAction: "DEFENSE_ATTACHED",
+      eventDescription: "Defesa anexada ao prontuario",
+      actionTitle: "Monitorar julgamento da defesa",
+      priority: "HIGH",
+      days: 7
+    },
+    RECURSO: {
+      eventAction: "APPEAL_ATTACHED",
+      eventDescription: "Recurso anexado ao prontuario",
+      actionTitle: "Monitorar julgamento do recurso",
+      priority: "HIGH",
+      days: 7
+    },
+    DECISAO: {
+      eventAction: "DECISION_DOCUMENT_ATTACHED",
+      eventDescription: "Documento de decisao anexado ao prontuario",
+      actionTitle: "Atualizar valor final e checklist de alta",
+      priority: "MEDIUM",
+      days: 2
+    },
+    COMPROVANTE: {
+      eventAction: "PROOF_ATTACHED",
+      eventDescription: "Comprovante anexado ao prontuario",
+      actionTitle: "Conferir baixa operacional do comprovante",
+      priority: "MEDIUM",
+      days: 2
+    }
+  };
+  return stages[String(documentType || "").trim().toUpperCase()];
+}
+
+async function smartTriage(req, res, body) {
+  const orgId = organizationId(req);
+  const caseId = String(body.caseId || "").trim();
+  const documentId = String(body.documentId || "").trim() || null;
+  const documentName = String(body.documentName || "documento").trim();
+  const extractedData = typeof body.extractedData === "object" && body.extractedData ? body.extractedData : {};
+  const confidence = Math.max(0, Math.min(100, Number(body.confidence || 0)));
+  const notes = Array.isArray(body.notes) ? body.notes.map((note) => String(note).trim()).filter(Boolean).slice(0, 8) : [];
+
+  if (!caseId) {
+    return sendJson(res, 400, { error: "validation_error", message: "Prontuario e dados de triagem sao obrigatorios." });
+  }
+
+  await withClient(res, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query(
+        "select * from regulatory_cases where organization_id = $1 and id = $2 for update",
+        [orgId, caseId]
+      );
+      if (current.rowCount === 0) {
+        await client.query("rollback");
+        return sendJson(res, 404, { error: "not_found" });
+      }
+
+      const row = current.rows[0];
+      const resolved = normalizeTriageFields(extractedData);
+      const nextCategory = resolved.category || row.category;
+      const nextSubcategory = resolved.subcategory || row.subcategory;
+      const nextAmount = resolved.amount ?? Number(row.amount || 0);
+      const nextVehiclePlate = resolved.vehiclePlate || row.vehicle_plate;
+      const nextInfractionNumber = resolved.infractionNumber || row.infraction_number;
+      const nextStatus = row.status === "RECEIVED" ? "TRIAGE" : row.status;
+      const risk = calculateRiskAssessment({
+        category: nextCategory,
+        amount: nextAmount,
+        deadlineDays: 10,
+        repetitions: 0,
+        status: nextStatus
+      });
+
+      await client.query(
+        `
+        update regulatory_cases
+        set infraction_number = $3,
+            category = $4,
+            subcategory = $5,
+            amount = $6,
+            vehicle_plate = $7,
+            status = $8::case_status,
+            risk_score = $9,
+            risk_level = $10,
+            updated_at = now()
+        where organization_id = $1 and id = $2
+        `,
+        [orgId, caseId, nextInfractionNumber, nextCategory, nextSubcategory, nextAmount, nextVehiclePlate, nextStatus, risk.score, risk.level]
+      );
+
+      if (row.status !== nextStatus) {
+        await client.query(
+          "insert into case_status_history (organization_id, case_id, old_status, new_status, reason) values ($1, $2, $3::case_status, $4::case_status, $5)",
+          [orgId, caseId, row.status, nextStatus, `Triagem inteligente do documento ${documentName}.`]
+        );
+      }
+
+      const extraction = await client.query(
+        `
+        insert into ai_extractions (organization_id, case_id, document_id, provider, status, extracted_data)
+        values ($1, $2, $3, 'SafeFleet Scanner', 'PENDING_CONFIRMATION', $4::jsonb)
+        returning id
+        `,
+        [orgId, caseId, documentId, JSON.stringify({ ...resolved, confidence, notes, documentName, validationRequired: true })]
+      );
+
+      await client.query(
+        `
+        insert into risk_assessments (organization_id, case_id, score, level, explanation)
+        values ($1, $2, $3, $4, $5)
+        `,
+        [orgId, caseId, risk.score, risk.level, `Triagem inteligente recalculou risco: ${risk.explanation}`]
+      );
+
+      await ensureTriageDeadline(client, orgId, caseId);
+      await ensureTriageAction(client, orgId, caseId, confidence);
+
+      await client.query(
+        "insert into case_events (organization_id, case_id, action, description, document_id) values ($1, $2, 'SMART_TRIAGE_CREATED', $3, $4)",
+        [orgId, caseId, `Scanner SafeFleet leu "${documentName}" com ${confidence}% de confianca. Campos preenchidos aguardam validacao humana.`, documentId]
+      );
+      await client.query(
+        "insert into case_events (organization_id, case_id, action, description, document_id) values ($1, $2, 'TRIAGE_REVIEW_REQUIRED', $3, $4)",
+        [orgId, caseId, `Revisar numero, orgao, prazo, enquadramento, valor e placa antes de defesa/recurso.`, documentId]
+      );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: caseId,
+        eventType: "SMART_TRIAGE_CREATED",
+        payload: { extractionId: extraction.rows[0].id, confidence, riskScore: risk.score, riskLevel: risk.level }
+      });
+      await recordAuditLog(client, req, {
+        organizationId: orgId,
+        action: "SMART_TRIAGE_CREATED",
+        entity: "ai_extractions",
+        entityId: extraction.rows[0].id,
+        newValue: { confidence, validationRequired: true, fields: resolved }
+      });
+
+      const payload = await loadCase(client, orgId, caseId);
+      await client.query("commit");
+      sendJson(res, 201, payload);
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+}
+
+function normalizeTriageFields(data) {
+  const infractionNumber = String(data.infractionNumber || "").trim();
+  const category = String(data.category || "").trim();
+  const subcategory = String(data.subcategory || "").trim();
+  const vehiclePlate = String(data.vehiclePlate || "").trim().toUpperCase();
+  const amountText = String(data.amount || "").trim().replace(/\./g, "").replace(",", ".");
+  const amount = amountText ? Number(amountText) : undefined;
+  return {
+    infractionNumber: infractionNumber || undefined,
+    category: category || undefined,
+    subcategory: subcategory || undefined,
+    vehiclePlate: vehiclePlate || undefined,
+    amount: Number.isFinite(amount) ? amount : undefined
+  };
+}
+
+async function ensureTriageDeadline(client, orgId, caseId) {
+  const exists = await client.query(
+    "select id from case_deadlines where organization_id = $1 and case_id = $2 and deadline_type = 'Validar prazo legal' limit 1",
+    [orgId, caseId]
+  );
+  if (exists.rowCount > 0) return;
+  await client.query(
+    `
+    insert into case_deadlines (organization_id, case_id, deadline_type, start_event, legal_basis, duration, due_date, status)
+    values ($1, $2, 'Validar prazo legal', 'SMART_TRIAGE_CREATED', 'A validar', 2, current_date + interval '2 days', 'PENDING')
+    `,
+    [orgId, caseId]
+  );
+}
+
+async function ensureTriageAction(client, orgId, caseId, confidence) {
+  const exists = await client.query(
+    "select id from case_actions where organization_id = $1 and case_id = $2 and title = 'Revisar triagem inteligente' limit 1",
+    [orgId, caseId]
+  );
+  if (exists.rowCount > 0) return;
+  await client.query(
+    `
+    insert into case_actions (organization_id, case_id, title, priority, status, due_date)
+    values ($1, $2, 'Revisar triagem inteligente', $3, 'PENDING', current_date + interval '1 day')
+    `,
+    [orgId, caseId, confidence >= 70 ? "MEDIUM" : "HIGH"]
+  );
 }
 
 async function confirmExtraction(req, res, body) {

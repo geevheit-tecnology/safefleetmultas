@@ -134,7 +134,14 @@ const codeLabels: Record<Language, Record<string, string>> = {
     OPERATOR: "Operador",
     LEGAL: "Juridico",
     MANAGER: "Gestor",
-    VIEWER: "Leitura"
+    VIEWER: "Leitura",
+    OPERATIONAL_FAILURE: "Falha operacional",
+    DOCUMENT_FAILURE: "Falha documental",
+    PROCESS_FAILURE: "Falha de processo",
+    HUMAN_FAILURE: "Falha humana",
+    SYSTEM_FAILURE: "Falha de sistema",
+    THIRD_PARTY: "Terceiro",
+    UNKNOWN: "Nao identificado"
   },
   en: {
     LOW: "Low",
@@ -170,7 +177,14 @@ const codeLabels: Record<Language, Record<string, string>> = {
     OPERATOR: "Operator",
     LEGAL: "Legal",
     MANAGER: "Manager",
-    VIEWER: "Viewer"
+    VIEWER: "Viewer",
+    OPERATIONAL_FAILURE: "Operational failure",
+    DOCUMENT_FAILURE: "Document failure",
+    PROCESS_FAILURE: "Process failure",
+    HUMAN_FAILURE: "Human failure",
+    SYSTEM_FAILURE: "System failure",
+    THIRD_PARTY: "Third party",
+    UNKNOWN: "Unknown"
   }
 };
 

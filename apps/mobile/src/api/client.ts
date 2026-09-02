@@ -550,6 +550,7 @@ export async function attachDocument(input: AttachDocumentInput): Promise<Regula
   if (!apiBaseUrl) {
     const item = cases.find((caseItem) => caseItem.id === input.caseId);
     if (!item) throw new Error("Prontuario nao encontrado");
+    const stage = documentStage(input.type);
     return {
       ...item,
       documents: [
@@ -561,6 +562,30 @@ export async function attachDocument(input: AttachDocumentInput): Promise<Regula
           storageKey: input.storageKey
         },
         ...item.documents
+      ],
+      actions: stage
+        ? [
+            {
+              id: `local-action-${Date.now()}`,
+              title: stage.actionTitle,
+              priority: stage.priority,
+              status: "PENDING",
+              dueDate: "",
+              completedAt: "",
+              responsible: "Nao definido"
+            },
+            ...item.actions
+          ]
+        : item.actions,
+      timeline: [
+        ...item.timeline,
+        {
+          id: `local-event-${Date.now()}`,
+          date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
+          title: stage?.eventAction ?? "DOCUMENT_ATTACHED",
+          description: stage ? `${stage.eventDescription}: "${input.name}".` : `Documento "${input.name}" anexado ao prontuario.`,
+          user: "Sistema"
+        }
       ]
     };
   }
@@ -571,6 +596,95 @@ export async function attachDocument(input: AttachDocumentInput): Promise<Regula
     body: JSON.stringify({ action: "attach_document", ...input })
   });
   if (!response.ok) throw new Error("Falha ao anexar documento");
+  return response.json();
+}
+
+function documentStage(type: string): { eventAction: string; eventDescription: string; actionTitle: string; priority: "HIGH" | "MEDIUM" | "LOW" } | null {
+  const stages: Record<string, { eventAction: string; eventDescription: string; actionTitle: string; priority: "HIGH" | "MEDIUM" | "LOW" }> = {
+    PROTOCOLO_DEFESA: {
+      eventAction: "DEFENSE_PROTOCOL_ATTACHED",
+      eventDescription: "Protocolo de defesa anexado ao prontuario",
+      actionTitle: "Acompanhar resposta do protocolo de defesa",
+      priority: "HIGH"
+    },
+    DEFESA: {
+      eventAction: "DEFENSE_ATTACHED",
+      eventDescription: "Defesa anexada ao prontuario",
+      actionTitle: "Monitorar julgamento da defesa",
+      priority: "HIGH"
+    },
+    RECURSO: {
+      eventAction: "APPEAL_ATTACHED",
+      eventDescription: "Recurso anexado ao prontuario",
+      actionTitle: "Monitorar julgamento do recurso",
+      priority: "HIGH"
+    },
+    DECISAO: {
+      eventAction: "DECISION_DOCUMENT_ATTACHED",
+      eventDescription: "Documento de decisao anexado ao prontuario",
+      actionTitle: "Atualizar valor final e checklist de alta",
+      priority: "MEDIUM"
+    },
+    COMPROVANTE: {
+      eventAction: "PROOF_ATTACHED",
+      eventDescription: "Comprovante anexado ao prontuario",
+      actionTitle: "Conferir baixa operacional do comprovante",
+      priority: "MEDIUM"
+    }
+  };
+  return stages[type] ?? null;
+}
+
+export type SmartTriageInput = {
+  caseId: string;
+  documentId?: string;
+  documentName?: string;
+  extractedData: Record<string, unknown>;
+  confidence: number;
+  notes: string[];
+};
+
+export async function runSmartTriage(input: SmartTriageInput): Promise<RegulatoryCase> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    if (!item) throw new Error("Prontuario nao encontrado");
+    return {
+      ...item,
+      status: item.status === "RECEIVED" ? "TRIAGE" : item.status,
+      aiExtractions: [
+        {
+          id: `local-triage-${Date.now()}`,
+          provider: "SafeFleet Scanner",
+          status: "PENDING_CONFIRMATION",
+          documentName: input.documentName ?? "documento",
+          extractedData: {
+            ...input.extractedData,
+            confidence: input.confidence,
+            notes: input.notes
+          }
+        },
+        ...item.aiExtractions
+      ],
+      timeline: [
+        ...item.timeline,
+        {
+          id: `local-triage-event-${Date.now()}`,
+          date: new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
+          title: "TRIAGE_CREATED",
+          description: `Triagem inteligente criada com ${input.confidence}% de confianca. Revisao humana obrigatoria.`,
+          user: "SafeFleet Scanner"
+        }
+      ]
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "smart_triage", ...input })
+  });
+  if (!response.ok) throw new Error("Falha ao executar triagem inteligente");
   return response.json();
 }
 
