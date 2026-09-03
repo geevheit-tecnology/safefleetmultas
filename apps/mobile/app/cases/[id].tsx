@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, deleteCase, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCase, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
-import { cases, type RegulatoryCase } from "../../src/data/demo";
+import type { RegulatoryCase } from "../../src/data/demo";
 import { allowedTransitions, type CaseStatus } from "../../src/domain/workflow";
 import { useLanguage } from "../../src/i18n";
 import { AppShell } from "../../src/ui/AppShell";
@@ -51,7 +51,7 @@ function isPreventionCategory(value: string): value is CreatePreventionInput["ca
 
 export default function CaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [item, setItem] = useState<RegulatoryCase>(cases.find((caseItem) => caseItem.id === id) ?? cases[0]);
+  const [item, setItem] = useState<RegulatoryCase | null>(null);
   const [reason, setReason] = useState("Avanco operacional validado.");
   const [editingCase, setEditingCase] = useState(false);
   const [editInfractionNumber, setEditInfractionNumber] = useState("");
@@ -109,6 +109,20 @@ export default function CaseDetailScreen() {
       }
     });
   }, [id]);
+
+  if (!item) {
+    return (
+      <AppShell title="Prontuario" subtitle="Carregando dados da multa">
+        <Stack.Screen options={{ title: "Prontuario" }} />
+        <Panel title="Registro nao carregado">
+          <Text style={styles.body}>Abra uma multa cadastrada ou crie um novo prontuario.</Text>
+          <Pressable onPress={() => router.replace("/cases")} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>Voltar para multas</Text>
+          </Pressable>
+        </Panel>
+      </AppShell>
+    );
+  }
 
   const fillEditForm = (caseItem: RegulatoryCase) => {
     setEditInfractionNumber(caseItem.infractionNumber ?? "");

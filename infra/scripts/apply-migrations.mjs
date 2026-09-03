@@ -35,7 +35,9 @@ try {
         "database/migrations/004_prevention.sql",
         "database/migrations/005_rbac.sql",
         "database/migrations/006_events_security.sql",
-        "database/migrations/007_demo_seed_expansion.sql"
+        "database/migrations/007_demo_seed_expansion.sql",
+        "database/migrations/015_user_auth.sql",
+        "database/migrations/016_remove_demo_data.sql"
       ];
 
   for (const migration of migrations) {

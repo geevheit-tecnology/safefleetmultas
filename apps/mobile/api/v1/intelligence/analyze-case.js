@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
       );
       await client.query(
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'AI_ANALYSIS_CREATED', $3)",
-        [orgId, caseId, "Analise de apoio criada por provider mock. Requer validacao humana."]
+        [orgId, caseId, "Analise de apoio criada pela inteligencia SafeFleet. Requer validacao humana."]
       );
       await client.query("commit");
       sendJson(res, 201, { ...created.rows[0], caseId });

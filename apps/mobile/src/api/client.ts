@@ -296,18 +296,19 @@ export async function getSecuritySummary(): Promise<SecuritySummary> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (!apiBaseUrl) {
     return {
-      organization: { id: "org-demo", name: "Brasport Transportes", document: "" },
-      users: [
-        { id: "user-1", name: "Ana Lima", email: "ana@safefleet.local", role: "OPERATOR" },
-        { id: "user-2", name: "Carlos Oliveira", email: "carlos@safefleet.local", role: "LEGAL" }
-      ],
+      organization: { id: "local", name: "SafeFleet", document: "" },
+      users: [],
       roles: [
-        { id: "role-1", code: "ADMIN", name: "Administrador", permissionCount: 4 },
-        { id: "role-2", code: "OPERATOR", name: "Operador", permissionCount: 3 }
+        { id: "role-admin", code: "ADMIN", name: "Administrador", permissionCount: 13 },
+        { id: "role-manager", code: "MANAGER", name: "Gestor", permissionCount: 7 },
+        { id: "role-operator", code: "OPERATOR", name: "Operador", permissionCount: 5 },
+        { id: "role-legal", code: "LEGAL", name: "Juridico", permissionCount: 8 },
+        { id: "role-viewer", code: "VIEWER", name: "Leitura", permissionCount: 3 }
       ],
       permissions: [
         { role: "ADMIN", permission: "users.manage", description: "Gerenciar usuarios" },
-        { role: "OPERATOR", permission: "cases.manage", description: "Gerenciar prontuarios" }
+        { role: "ADMIN", permission: "cases.close", description: "Excluir ou encerrar prontuarios" },
+        { role: "OPERATOR", permission: "cases.update", description: "Atualizar prontuarios" }
       ],
       audit: [],
       controls: {
@@ -1033,7 +1034,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
     const now = new Date().toISOString().slice(0, 10);
     return {
       id: `local-${Date.now()}`,
-      organizationId: "org-demo",
+      organizationId: "local",
       caseNumber: `SF-${Date.now()}`,
       infractionNumber: input.infractionNumber,
       category: input.category,
@@ -1047,7 +1048,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       riskLevel: "LOW",
       vehiclePlate: input.vehiclePlate,
       rntrc: input.rntrc,
-      authority: "Orgao informado",
+      authority: input.authority || "Orgao informado",
       responsible: "Nao definido",
       deadlines: [],
       actions: [],

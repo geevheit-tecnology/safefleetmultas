@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
       averageRiskScore: 0
     },
     preventive: {
-      provider: "MOCK_AI_PROVIDER",
+      provider: "SafeFleet Intelligence",
       analysisType: "PREVENTIVE_INTELLIGENCE",
       content:
         "Camada de IA preparada para leitura documental, classificacao regulatoria, resumo executivo e inteligencia preventiva. No preview publico, dados internos e analises persistidas ficam protegidos.",

@@ -25,7 +25,7 @@ function buildCaseSupportAnalysis(regulatoryCase) {
     : "O caso possui risco inicial menor, mas ainda exige conferencia operacional.";
 
   return assertSafeAiAnalysis({
-    provider: "MOCK_AI_PROVIDER",
+    provider: "SafeFleet Intelligence",
     analysisType: "EXECUTIVE_SUMMARY",
     content: [
       riskText,
@@ -38,7 +38,7 @@ function buildCaseSupportAnalysis(regulatoryCase) {
 
 function buildPreventiveAnalysis(metrics) {
   return assertSafeAiAnalysis({
-    provider: "MOCK_AI_PROVIDER",
+    provider: "SafeFleet Intelligence",
     analysisType: "PREVENTIVE_INTELLIGENCE",
     content: `Foram encontrados ${metrics.totalCases} prontuarios e ${metrics.ciotCases} caso(s) CIOT. Possiveis padroes devem ser tratados como apoio operacional e validados por responsavel humano.`,
     sourceReference: "Agregados internos de regulatory_cases; nao substitui analise juridica."

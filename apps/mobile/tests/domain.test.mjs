@@ -25,7 +25,7 @@ const safeAnalysis = buildCaseSupportAnalysis({
   category: "CIOT",
   risk_level: "HIGH"
 });
-assert.equal(safeAnalysis.provider, "MOCK_AI_PROVIDER");
+assert.equal(safeAnalysis.provider, "SafeFleet Intelligence");
 assert.throws(
   () =>
     assertSafeAiAnalysis({
