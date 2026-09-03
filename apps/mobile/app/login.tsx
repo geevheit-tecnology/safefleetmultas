@@ -69,7 +69,12 @@ export default function LoginScreen() {
             <Link href="/forgot-password" style={styles.link}>Recuperar senha</Link>
             <Link href="/first-access" style={styles.link}>Primeiro acesso</Link>
           </View>
-          <Text style={styles.note}>Ambiente de acesso seguro com perfis, auditoria e separacao por empresa.</Text>
+          <View style={styles.accessBox}>
+            <Text style={styles.accessTitle}>Web</Text>
+            <Text style={styles.note}>Abra pelo link da Vercel no navegador.</Text>
+            <Text style={styles.accessTitle}>App no celular</Text>
+            <Text style={styles.note}>No Chrome ou Safari, use Compartilhar/Adicionar a tela inicial para instalar o SafeFleet.</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -116,6 +121,8 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontWeight: "900", textAlign: "center" },
   links: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   link: { color: tokens.colors.primary, fontWeight: "800", textDecorationLine: "none" },
+  accessBox: { borderWidth: 1, borderColor: "#edf0f4", borderRadius: 8, backgroundColor: "#fbfcfe", padding: 10, gap: 3 },
+  accessTitle: { color: "#344054", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   note: { color: tokens.colors.muted, fontSize: 12, lineHeight: 18 },
   error: { color: "#b42318", fontWeight: "800" },
   pressed: { opacity: 0.82 },
