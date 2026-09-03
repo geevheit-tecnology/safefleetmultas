@@ -1024,6 +1024,7 @@ export type CreateCaseInput = {
   vehiclePlate: string;
   rntrc: string;
   amount: number;
+  authority?: string;
 };
 
 export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase> {
@@ -1065,5 +1066,43 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
     body: JSON.stringify(input)
   });
   if (!response.ok) throw new Error("Falha ao criar prontuario");
+  return response.json();
+}
+
+export async function updateCase(input: CreateCaseInput & { id: string }): Promise<RegulatoryCase> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) {
+    const item = cases.find((caseItem) => caseItem.id === input.id);
+    if (!item) throw new Error("Prontuario nao encontrado");
+    return {
+      ...item,
+      infractionNumber: input.infractionNumber,
+      category: input.category,
+      subcategory: input.subcategory,
+      description: input.description,
+      vehiclePlate: input.vehiclePlate,
+      rntrc: input.rntrc,
+      amount: input.amount,
+      authority: input.authority || item.authority
+    };
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/v1/cases`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) throw new Error("Falha ao editar prontuario");
+  return response.json();
+}
+
+export async function deleteCase(id: string): Promise<{ ok: boolean }> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (!apiBaseUrl) return { ok: true };
+  const response = await fetch(`${apiBaseUrl}/api/v1/cases?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders()
+  });
+  if (!response.ok) throw new Error("Falha ao excluir prontuario");
   return response.json();
 }

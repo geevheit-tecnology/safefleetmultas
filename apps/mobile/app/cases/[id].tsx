@@ -1,9 +1,9 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
+import { addNote, attachDocument, completeDeadline, confirmClosure, confirmDocumentExtraction, createCaseAction, createDeadline, createPrevention, deleteCase, getCase, prepareDocumentExtraction, registerDecision, suggestRelationships, updateCase, updateCaseStatus, validateRelationship, type CreatePreventionInput, type RelationshipSuggestionSummary } from "../../src/api/client";
 import { cases, type RegulatoryCase } from "../../src/data/demo";
 import { allowedTransitions, type CaseStatus } from "../../src/domain/workflow";
 import { useLanguage } from "../../src/i18n";
@@ -53,6 +53,15 @@ export default function CaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<RegulatoryCase>(cases.find((caseItem) => caseItem.id === id) ?? cases[0]);
   const [reason, setReason] = useState("Avanco operacional validado.");
+  const [editingCase, setEditingCase] = useState(false);
+  const [editInfractionNumber, setEditInfractionNumber] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editSubcategory, setEditSubcategory] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editVehiclePlate, setEditVehiclePlate] = useState("");
+  const [editRntrc, setEditRntrc] = useState("");
+  const [editAuthority, setEditAuthority] = useState("");
+  const [editAmount, setEditAmount] = useState("");
   const [deadlineType, setDeadlineType] = useState("Validar prazo de defesa");
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineBasis, setDeadlineBasis] = useState("NOT_VERIFIED");
@@ -85,6 +94,8 @@ export default function CaseDetailScreen() {
   const [loadingRelationships, setLoadingRelationships] = useState(false);
   const [validatingRelationshipId, setValidatingRelationshipId] = useState<string | null>(null);
   const [confirmingClosure, setConfirmingClosure] = useState(false);
+  const [savingCase, setSavingCase] = useState(false);
+  const [deletingCase, setDeletingCase] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { codeLabel } = useLanguage();
   const selectedPhase = documentPhases.find((phase) => phase.type === documentType) ?? documentPhases[0];
@@ -92,9 +103,63 @@ export default function CaseDetailScreen() {
   useEffect(() => {
     if (!id) return;
     void getCase(id).then((loaded) => {
-      if (loaded) setItem(loaded);
+      if (loaded) {
+        setItem(loaded);
+        fillEditForm(loaded);
+      }
     });
   }, [id]);
+
+  const fillEditForm = (caseItem: RegulatoryCase) => {
+    setEditInfractionNumber(caseItem.infractionNumber ?? "");
+    setEditCategory(caseItem.category);
+    setEditSubcategory(caseItem.subcategory ?? "");
+    setEditDescription(caseItem.description ?? "");
+    setEditVehiclePlate(caseItem.vehiclePlate ?? "");
+    setEditRntrc(caseItem.rntrc ?? "");
+    setEditAuthority(caseItem.authority);
+    setEditAmount(String(caseItem.amount || ""));
+  };
+
+  const submitCaseEdit = async () => {
+    setSavingCase(true);
+    setError(null);
+    try {
+      const updated = await updateCase({
+        id: item.id,
+        infractionNumber: editInfractionNumber,
+        category: editCategory,
+        subcategory: editSubcategory,
+        description: editDescription,
+        vehiclePlate: editVehiclePlate,
+        rntrc: editRntrc,
+        authority: editAuthority,
+        amount: Number(editAmount.replace(",", ".")) || 0
+      });
+      setItem(updated);
+      fillEditForm(updated);
+      setEditingCase(false);
+    } catch {
+      setError("Nao foi possivel editar o prontuario.");
+    } finally {
+      setSavingCase(false);
+    }
+  };
+
+  const submitCaseDelete = async () => {
+    const confirmed = typeof window === "undefined" ? true : window.confirm(`Excluir o prontuario ${item.caseNumber}? Esta acao remove a multa e seus registros vinculados.`);
+    if (!confirmed) return;
+    setDeletingCase(true);
+    setError(null);
+    try {
+      await deleteCase(item.id);
+      router.replace("/cases");
+    } catch {
+      setError("Nao foi possivel excluir o prontuario.");
+    } finally {
+      setDeletingCase(false);
+    }
+  };
 
   const changeStatus = async (status: CaseStatus) => {
     setUpdatingStatus(status);
@@ -374,8 +439,39 @@ export default function CaseDetailScreen() {
           <Text style={styles.title}>{item.category} · {item.subcategory}</Text>
           <Text style={styles.body}>{item.description}</Text>
         </View>
-        <Pill text={`${codeLabel(item.riskLevel)} ${item.riskScore}/100`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#5c7fa8"} />
+        <View style={styles.heroActions}>
+          <Pill text={`${codeLabel(item.riskLevel)} ${item.riskScore}/100`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#5c7fa8"} />
+          <Pressable onPress={() => setEditingCase((current) => !current)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>{editingCase ? "Fechar edicao" : "Editar multa"}</Text>
+          </Pressable>
+          <Pressable disabled={deletingCase} onPress={submitCaseDelete} style={({ pressed }) => [styles.dangerButton, pressed && styles.pressed, deletingCase && styles.disabled]}>
+            <Text style={styles.dangerButtonText}>{deletingCase ? "Excluindo..." : "Excluir"}</Text>
+          </Pressable>
+        </View>
       </View>
+
+      {editingCase ? (
+        <Panel title="Editar multa">
+          <View style={styles.editGrid}>
+            <TextInput value={editInfractionNumber} onChangeText={setEditInfractionNumber} style={styles.input} placeholder="Numero do auto" placeholderTextColor="#98a2b3" />
+            <TextInput value={editCategory} onChangeText={setEditCategory} style={styles.input} placeholder="Categoria" placeholderTextColor="#98a2b3" />
+            <TextInput value={editSubcategory} onChangeText={setEditSubcategory} style={styles.input} placeholder="Subcategoria" placeholderTextColor="#98a2b3" />
+            <TextInput value={editVehiclePlate} onChangeText={setEditVehiclePlate} style={styles.input} placeholder="Placa" placeholderTextColor="#98a2b3" autoCapitalize="characters" />
+            <TextInput value={editRntrc} onChangeText={setEditRntrc} style={styles.input} placeholder="RNTRC" placeholderTextColor="#98a2b3" />
+            <TextInput value={editAuthority} onChangeText={setEditAuthority} style={styles.input} placeholder="Orgao" placeholderTextColor="#98a2b3" />
+            <TextInput value={editAmount} onChangeText={setEditAmount} style={styles.input} placeholder="Valor" placeholderTextColor="#98a2b3" keyboardType="decimal-pad" />
+          </View>
+          <TextInput value={editDescription} onChangeText={setEditDescription} style={[styles.input, styles.editDescription]} multiline placeholder="Descricao" placeholderTextColor="#98a2b3" />
+          <View style={styles.actionBar}>
+            <Pressable disabled={savingCase} onPress={submitCaseEdit} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed, savingCase && styles.disabled]}>
+              <Text style={styles.statusButtonText}>{savingCase ? "Salvando..." : "Salvar alteracoes"}</Text>
+            </Pressable>
+            <Pressable onPress={() => { fillEditForm(item); setEditingCase(false); }} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+              <Text style={styles.secondaryButtonText}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </Panel>
+      ) : null}
 
       <View style={styles.grid}>
         <InfoCard label="Status" value={codeLabel(item.status)} />
@@ -769,6 +865,7 @@ function fieldLabel(key: string) {
 
 const styles = StyleSheet.create({
   hero: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e4e7ec", padding: 18, gap: 12, flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap" },
+  heroActions: { alignItems: "flex-end", gap: 8 },
   caseNumber: { color: "#5c7fa8", fontWeight: "900", fontSize: 13 },
   title: { color: "#101828", fontSize: 24, fontWeight: "900" },
   body: { color: "#667085", lineHeight: 20 },
@@ -782,6 +879,8 @@ const styles = StyleSheet.create({
   error: { color: "#b42318", fontWeight: "800" },
   input: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 12, minHeight: 44, color: "#101828", backgroundColor: "#fff" },
   actionBar: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  editGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  editDescription: { minHeight: 78, paddingTop: 12, textAlignVertical: "top" },
   deadlineForm: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
   documentForm: { flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
   phaseGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -804,6 +903,8 @@ const styles = StyleSheet.create({
   statusArea: { alignItems: "flex-end", gap: 8 },
   secondaryButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#5c7fa8", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   secondaryButtonText: { color: "#5c7fa8", fontWeight: "900", fontSize: 12 },
+  dangerButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: "#f3b6b6", backgroundColor: "#fff7f7", paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  dangerButtonText: { color: "#b42318", fontWeight: "900", fontSize: 12 },
   inlineButton: { alignSelf: "flex-start", marginTop: 10 },
   relationRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f2f4f7", minWidth: 0 },
   pressed: { opacity: 0.82 },

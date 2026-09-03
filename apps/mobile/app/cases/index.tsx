@@ -1,7 +1,7 @@
 import { Link } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { listCases } from "../../src/api/client";
+import { deleteCase, listCases } from "../../src/api/client";
 import { useLanguage } from "../../src/i18n";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
@@ -14,11 +14,34 @@ export default function CasesScreen() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
   const [riskFilter, setRiskFilter] = useState("TODOS");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { codeLabel } = useLanguage();
 
+  const loadCases = () => {
+    void listCases()
+      .then(setCases)
+      .catch(() => setError("Nao foi possivel carregar os prontuarios."));
+  };
+
   useEffect(() => {
-    void listCases().then(setCases);
+    loadCases();
   }, []);
+
+  const removeCase = async (item: RegulatoryCase) => {
+    const confirmed = typeof window === "undefined" ? true : window.confirm(`Excluir o prontuario ${item.caseNumber}?`);
+    if (!confirmed) return;
+    setDeletingId(item.id);
+    setError(null);
+    try {
+      await deleteCase(item.id);
+      setCases((current) => current.filter((caseItem) => caseItem.id !== item.id));
+    } catch {
+      setError("Nao foi possivel excluir o prontuario.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const filteredCases = cases.filter((item) => {
     const search = query.trim().toLowerCase();
@@ -42,6 +65,7 @@ export default function CasesScreen() {
         <InfoCard label="Aguardando acao" value={String(cases.filter((item) => item.status === "ACTION_REQUIRED").length)} tone="#b42318" />
         <InfoCard label="Com documento" value={String(cases.filter((item) => item.documents.length > 0).length)} tone="#067647" />
       </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
       <Panel title="Filtros">
         <View style={styles.filterHeader}>
           <TextInput
@@ -75,19 +99,27 @@ export default function CasesScreen() {
       <Panel title="Lista de casos">
         {filteredCases.length === 0 ? <Text style={styles.muted}>Nenhum prontuario encontrado com os filtros atuais.</Text> : null}
         {filteredCases.map((item) => (
-          <Link key={item.id} href={`/cases/${item.id}`} style={styles.link}>
-            <View style={styles.caseRow}>
+          <View key={item.id} style={styles.caseRow}>
+            <Link href={`/cases/${item.id}`} style={[styles.link, styles.flex]}>
               <View style={styles.flex}>
                 <Text style={styles.caseNumber}>{item.caseNumber}</Text>
                 <Text style={styles.title}>{item.category} · {item.subcategory}</Text>
                 <Text style={styles.muted}>{item.vehiclePlate ?? "sem placa"} · {item.responsible} · {money.format(item.amount)}</Text>
               </View>
-              <View style={styles.right}>
-                <Pill text={`${codeLabel(item.riskLevel)} ${item.riskScore}`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#5c7fa8"} />
-                <Text style={styles.status}>{codeLabel(item.status)}</Text>
+            </Link>
+            <View style={styles.right}>
+              <Pill text={`${codeLabel(item.riskLevel)} ${item.riskScore}`} tone={item.riskLevel === "CRITICAL" ? "#b42318" : "#5c7fa8"} />
+              <Text style={styles.status}>{codeLabel(item.status)}</Text>
+              <View style={styles.rowActions}>
+                <Link href={`/cases/${item.id}`} style={styles.editButton}>
+                  <Text style={styles.editButtonText}>Editar</Text>
+                </Link>
+                <Pressable disabled={deletingId === item.id} onPress={() => removeCase(item)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed, deletingId === item.id && styles.disabled]}>
+                  <Text style={styles.deleteButtonText}>{deletingId === item.id ? "..." : "Excluir"}</Text>
+                </Pressable>
               </View>
             </View>
-          </Link>
+          </View>
         ))}
       </Panel>
     </AppShell>
@@ -112,6 +144,13 @@ const styles = StyleSheet.create({
   caseNumber: { color: "#5c7fa8", fontWeight: "900", fontSize: 12 },
   title: { color: "#101828", fontWeight: "900", fontSize: 15, flexShrink: 1 },
   muted: { color: "#667085", fontSize: 12, marginTop: 3, flexShrink: 1 },
+  error: { color: "#b42318", fontWeight: "800" },
   status: { color: "#667085", fontWeight: "800", fontSize: 11 },
+  rowActions: { flexDirection: "row", gap: 6 },
+  editButton: { minHeight: 30, borderRadius: 8, borderWidth: 1, borderColor: "#b8cbe0", paddingHorizontal: 10, justifyContent: "center", textDecorationLine: "none" },
+  editButtonText: { color: "#405978", fontSize: 11, fontWeight: "900" },
+  deleteButton: { minHeight: 30, borderRadius: 8, borderWidth: 1, borderColor: "#f3b6b6", backgroundColor: "#fff7f7", paddingHorizontal: 10, justifyContent: "center" },
+  deleteButtonText: { color: "#b42318", fontSize: 11, fontWeight: "900" },
+  disabled: { opacity: 0.55 },
   pressed: { opacity: 0.82 }
 });

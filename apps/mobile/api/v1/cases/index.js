@@ -36,6 +36,8 @@ function mapCase(row) {
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
   if (req.method === "POST") return createCase(req, res);
+  if (req.method === "PATCH") return updateCase(req, res);
+  if (req.method === "DELETE") return deleteCase(req, res);
   if (req.method !== "GET") return sendJson(res, 405, { error: "method_not_allowed" });
 
   await withClient(res, async (client) => {
@@ -151,6 +153,142 @@ async function createCase(req, res) {
       );
       await client.query("commit");
       sendJson(res, 201, mapCase({ ...created.rows[0], responsible_name: "Nao definido" }));
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+}
+
+async function updateCase(req, res) {
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const orgId = organizationId(req);
+  const id = String(body.id || "").trim();
+  if (!id) return sendJson(res, 400, { error: "validation_error", message: "Prontuario obrigatorio." });
+
+  const infractionNumber = String(body.infractionNumber || "").trim();
+  const category = String(body.category || "").trim();
+  const subcategory = String(body.subcategory || "").trim();
+  const description = String(body.description || "").trim();
+  const vehiclePlate = String(body.vehiclePlate || "").trim().toUpperCase();
+  const rntrc = String(body.rntrc || "").trim();
+  const amount = Number(body.amount || 0);
+  const authority = String(body.authority || "Orgao informado").trim();
+
+  if (!infractionNumber || !category) {
+    return sendJson(res, 400, { error: "validation_error", message: "Numero do auto e categoria sao obrigatorios." });
+  }
+
+  await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.update_case);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
+    await client.query("begin");
+    try {
+      const current = await client.query("select * from regulatory_cases where organization_id = $1 and id = $2 for update", [orgId, id]);
+      if (current.rowCount === 0) {
+        await client.query("rollback");
+        return sendJson(res, 404, { error: "not_found" });
+      }
+      const repetitions = await client.query(
+        "select count(*)::int as count from regulatory_cases where organization_id = $1 and id <> $2 and category ilike $3",
+        [orgId, id, `%${category}%`]
+      );
+      const risk = calculateRiskAssessment({
+        category,
+        amount,
+        deadlineDays: 5,
+        repetitions: repetitions.rows[0].count,
+        status: current.rows[0].status
+      });
+      const updated = await client.query(
+        `
+        update regulatory_cases
+        set infraction_number = $3,
+            category = $4,
+            subcategory = $5,
+            description = $6,
+            amount = $7,
+            vehicle_plate = $8,
+            rntrc = $9,
+            authority = $10,
+            risk_score = $11,
+            risk_level = $12,
+            updated_at = now()
+        where organization_id = $1 and id = $2
+        returning *
+        `,
+        [orgId, id, infractionNumber, category, subcategory, description, amount, vehiclePlate || null, rntrc || null, authority, risk.score, risk.level]
+      );
+      await client.query(
+        "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_UPDATED', $3)",
+        [orgId, id, `Dados principais atualizados. RiskEngine recalculou ${risk.score}/100 (${risk.level}).`]
+      );
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: id,
+        eventType: "CASE_UPDATED",
+        payload: { riskScore: risk.score, riskLevel: risk.level }
+      });
+      await recordAuditLog(client, req, {
+        organizationId: orgId,
+        userId: authz.userId,
+        action: "CASE_UPDATED",
+        entity: "regulatory_cases",
+        entityId: id,
+        oldValue: {
+          infractionNumber: current.rows[0].infraction_number,
+          category: current.rows[0].category,
+          amount: current.rows[0].amount,
+          vehiclePlate: current.rows[0].vehicle_plate
+        },
+        newValue: { infractionNumber, category, amount, vehiclePlate, authority, riskScore: risk.score, riskLevel: risk.level }
+      });
+      await client.query("commit");
+      sendJson(res, 200, mapCase({ ...updated.rows[0], responsible_name: current.rows[0].responsible_name || "Nao definido" }));
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+}
+
+async function deleteCase(req, res) {
+  const orgId = organizationId(req);
+  const id = String(new URL(req.url, "http://local").searchParams.get("id") || "").trim();
+  if (!id) return sendJson(res, 400, { error: "validation_error", message: "Prontuario obrigatorio." });
+
+  await withClient(res, async (client) => {
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.close_case);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
+    await client.query("begin");
+    try {
+      const current = await client.query("select * from regulatory_cases where organization_id = $1 and id = $2 for update", [orgId, id]);
+      if (current.rowCount === 0) {
+        await client.query("rollback");
+        return sendJson(res, 404, { error: "not_found" });
+      }
+      await recordAuditLog(client, req, {
+        organizationId: orgId,
+        userId: authz.userId,
+        action: "CASE_DELETED",
+        entity: "regulatory_cases",
+        entityId: id,
+        oldValue: {
+          caseNumber: current.rows[0].case_number,
+          infractionNumber: current.rows[0].infraction_number,
+          category: current.rows[0].category,
+          amount: current.rows[0].amount
+        }
+      });
+      await recordOutboxEvent(client, {
+        organizationId: orgId,
+        aggregateId: id,
+        eventType: "CASE_DELETED",
+        payload: { caseNumber: current.rows[0].case_number }
+      });
+      await client.query("delete from regulatory_cases where organization_id = $1 and id = $2", [orgId, id]);
+      await client.query("commit");
+      sendJson(res, 200, { ok: true });
     } catch (error) {
       await client.query("rollback");
       throw error;
