@@ -12,8 +12,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
 
   const submit = async () => {
+    if (!canSubmit) {
+      setError("Informe e-mail e senha para acessar.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -62,7 +67,7 @@ export default function LoginScreen() {
             <TextInput value={password} onChangeText={setPassword} style={styles.input} placeholder="senha" placeholderTextColor="#98a2b3" secureTextEntry />
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Pressable disabled={loading} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, loading && styles.disabled]}>
+          <Pressable disabled={!canSubmit} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, !canSubmit && styles.disabled]}>
             <Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text>
           </Pressable>
           <View style={styles.links}>
