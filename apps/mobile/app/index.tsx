@@ -7,19 +7,56 @@ import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { tokens } from "../src/ui/tokens";
 import { InfoCard, Panel, Pill } from "../src/ui/Primitives";
-import { cases as demoCases, dashboard as demoDashboard, type RegulatoryCase } from "../src/data/demo";
+import type { RegulatoryCase } from "../src/data/demo";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+type DashboardState = {
+  organizationName: string;
+  activeCases: number;
+  criticalCases: number;
+  financialExposure: number;
+  upcomingDeadlines: number;
+  closedCases: number;
+  inTreatmentCases: number;
+  overdueDeadlines: number;
+  regulatoryScore: number;
+  scoreComponents: {
+    deadlines?: number;
+    documentation?: number;
+    ciot?: number;
+    floorMinimum?: number;
+    processes?: number;
+    repetition?: number;
+    prevention?: number;
+  };
+  trends: Array<{ month: string; cases: number; amount: number }>;
+  regulatoryChanges: Array<{ title: string; impact: string; detectedAt: string }>;
+};
+
+const emptyDashboard: DashboardState = {
+  organizationName: "SafeFleet",
+  activeCases: 0,
+  criticalCases: 0,
+  financialExposure: 0,
+  upcomingDeadlines: 0,
+  closedCases: 0,
+  inTreatmentCases: 0,
+  overdueDeadlines: 0,
+  regulatoryScore: 0,
+  scoreComponents: {},
+  trends: [],
+  regulatoryChanges: []
+};
 
 export default function DashboardScreen() {
-  const [cases, setCases] = useState<RegulatoryCase[]>(demoCases);
-  const [dashboard, setDashboard] = useState(demoDashboard);
+  const [cases, setCases] = useState<RegulatoryCase[]>([]);
+  const [dashboard, setDashboard] = useState(emptyDashboard);
   const { t, codeLabel } = useLanguage();
 
   useEffect(() => {
     void Promise.all([listCases(), getDashboard()]).then(([caseItems, metrics]) => {
-      setCases(caseItems.length > 0 ? caseItems : demoCases);
-      setDashboard({ ...demoDashboard, ...metrics });
+      setCases(caseItems);
+      setDashboard({ ...emptyDashboard, ...metrics });
     });
   }, []);
 
@@ -138,6 +175,7 @@ export default function DashboardScreen() {
 
       <View style={styles.columns}>
         <Panel title={t("criticalCases")}>
+          {criticalCases.length === 0 ? <Text style={styles.muted}>Nenhum caso critico no momento.</Text> : null}
           {criticalCases.map((item) => (
             <Link key={item.id} href={`/cases/${item.id}`} style={styles.link}>
               <View style={styles.alertRow}>
@@ -154,6 +192,7 @@ export default function DashboardScreen() {
         </Panel>
 
         <Panel title={t("upcomingDeadlines")}>
+          {deadlines.length === 0 ? <Text style={styles.muted}>Nenhum prazo cadastrado.</Text> : null}
           {deadlines.map((item) => (
             <View key={item.id} style={styles.deadlineRow}>
               <View style={styles.daysBox}>
@@ -170,6 +209,7 @@ export default function DashboardScreen() {
       </View>
 
       <Panel title={t("operationalQueue")}>
+        {openActions.length === 0 ? <Text style={styles.muted}>Nenhuma acao aberta.</Text> : null}
         {openActions.map((action) => (
           <View key={action.id} style={styles.listRow}>
             <View style={styles.flex}>
@@ -183,6 +223,7 @@ export default function DashboardScreen() {
 
       <View style={styles.columns}>
         <Panel title={t("trends")}>
+          {(dashboard.trends ?? []).length === 0 ? <Text style={styles.muted}>Sem tendencia registrada.</Text> : null}
           {(dashboard.trends ?? []).map((trend) => (
             <View key={trend.month} style={styles.listRow}>
               <View style={styles.flex}>
@@ -195,6 +236,7 @@ export default function DashboardScreen() {
         </Panel>
 
         <Panel title={t("legislativeChanges")}>
+          {(dashboard.regulatoryChanges ?? []).length === 0 ? <Text style={styles.muted}>Sem alerta normativo registrado.</Text> : null}
           {(dashboard.regulatoryChanges ?? []).map((change) => (
             <View key={`${change.title}-${change.detectedAt}`} style={styles.listRow}>
               <View style={styles.flex}>

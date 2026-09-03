@@ -1,4 +1,5 @@
 const { organizationId, sendJson, withClient } = require("../../_db");
+const { ACTION_PERMISSIONS, authorize } = require("../../_authz");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 204, {});
@@ -6,7 +7,10 @@ module.exports = async function handler(req, res) {
 
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
-    const [overview, byStatus, byRisk, byCategory, deadlines, events] = await Promise.all([
+    const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.read_reports);
+    if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
+    const [org, overview, byStatus, byRisk, byCategory, deadlines, events] = await Promise.all([
+      client.query("select name from organizations where id = $1", [orgId]),
       client.query(
         `
         select
@@ -76,7 +80,7 @@ module.exports = async function handler(req, res) {
     ]);
 
     sendJson(res, 200, {
-      organizationName: "Transportadora Demo",
+      organizationName: org.rows[0]?.name || "SafeFleet",
       generatedAt: new Date().toISOString(),
       overview: overview.rows[0],
       byStatus: byStatus.rows,

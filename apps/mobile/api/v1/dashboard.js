@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
   await withClient(res, async (client) => {
     const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.read_reports);
     if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
-    const [result, deadlineResult, trendResult, changeResult] = await Promise.all([
+    const [org, result, deadlineResult, trendResult, changeResult] = await Promise.all([
+      client.query("select name from organizations where id = $1", [orgId]),
       client.query(
       `
       select
@@ -72,7 +73,7 @@ module.exports = async function handler(req, res) {
     const deadlines = deadlineResult.rows[0];
     const regulatoryScore = calculateRegulatoryScore(metrics, deadlines);
     sendJson(res, 200, {
-      organizationName: "Transportadora Demo",
+      organizationName: org.rows[0]?.name || "SafeFleet",
       regulatoryScore: regulatoryScore.score,
       scoreComponents: regulatoryScore.components,
       scoreDisclaimer: regulatoryScore.disclaimer,

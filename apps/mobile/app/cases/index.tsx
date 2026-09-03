@@ -5,19 +5,19 @@ import { listCases } from "../../src/api/client";
 import { useLanguage } from "../../src/i18n";
 import { AppShell } from "../../src/ui/AppShell";
 import { InfoCard, Panel, Pill } from "../../src/ui/Primitives";
-import { cases as demoCases, type RegulatoryCase } from "../../src/data/demo";
+import type { RegulatoryCase } from "../../src/data/demo";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function CasesScreen() {
-  const [cases, setCases] = useState<RegulatoryCase[]>(demoCases);
+  const [cases, setCases] = useState<RegulatoryCase[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
   const [riskFilter, setRiskFilter] = useState("TODOS");
   const { codeLabel } = useLanguage();
 
   useEffect(() => {
-    void listCases().then((items) => setCases(items.length > 0 ? items : demoCases));
+    void listCases().then(setCases);
   }, []);
 
   const filteredCases = cases.filter((item) => {
