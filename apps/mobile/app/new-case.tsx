@@ -19,11 +19,27 @@ type SelectedDocument = {
 type ScanResult = {
   fields: {
     infractionNumber?: string;
+    processNumber?: string;
     category?: string;
     subcategory?: string;
     vehiclePlate?: string;
+    driverName?: string;
+    rntrc?: string;
+    authority?: string;
+    location?: string;
     amount?: string;
     description?: string;
+    autuadoName?: string;
+    autuadoDocument?: string;
+    address?: string;
+    origin?: string;
+    destination?: string;
+    distanceKm?: string;
+    article?: string;
+    code?: string;
+    issueDate?: string;
+    infractionDate?: string;
+    defenseDeadline?: string;
   };
   confidence: number;
   notes: string[];
@@ -31,12 +47,17 @@ type ScanResult = {
 
 export default function NewCaseScreen() {
   const [infractionNumber, setInfractionNumber] = useState("");
+  const [processNumber, setProcessNumber] = useState("");
   const [category, setCategory] = useState("Transporte");
   const [subcategory, setSubcategory] = useState("");
   const [description, setDescription] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
+  const [driverName, setDriverName] = useState("");
   const [rntrc, setRntrc] = useState("");
+  const [authority, setAuthority] = useState("ANTT");
+  const [location, setLocation] = useState("");
   const [amount, setAmount] = useState("");
+  const [ocrText, setOcrText] = useState("");
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -109,12 +130,17 @@ export default function NewCaseScreen() {
     setScanning(true);
     setError(null);
     try {
-      const result = await scanSelectedDocument(selectedDocument);
+      const result = await scanSelectedDocument(selectedDocument, ocrText);
       setScanResult(result);
       if (result.fields.infractionNumber && !infractionNumber.trim()) setInfractionNumber(result.fields.infractionNumber);
+      if (result.fields.processNumber && !processNumber.trim()) setProcessNumber(result.fields.processNumber);
       if (result.fields.category && (!category.trim() || category === "Transporte")) setCategory(result.fields.category);
       if (result.fields.subcategory && !subcategory.trim()) setSubcategory(result.fields.subcategory);
       if (result.fields.vehiclePlate && !vehiclePlate.trim()) setVehiclePlate(result.fields.vehiclePlate);
+      if (result.fields.driverName && !driverName.trim()) setDriverName(result.fields.driverName);
+      if (result.fields.rntrc && !rntrc.trim()) setRntrc(result.fields.rntrc);
+      if (result.fields.authority && !authority.trim()) setAuthority(result.fields.authority);
+      if (result.fields.location && !location.trim()) setLocation(result.fields.location);
       if (result.fields.amount && !amount.trim()) setAmount(result.fields.amount);
       if (result.fields.description && !description.trim()) setDescription(result.fields.description);
     } finally {
@@ -127,7 +153,7 @@ export default function NewCaseScreen() {
     setError(null);
     let createdCaseId: string | null = null;
     try {
-      const triage = selectedDocument ? scanResult ?? await scanSelectedDocument(selectedDocument) : null;
+      const triage = selectedDocument ? scanResult ?? await scanSelectedDocument(selectedDocument, ocrText) : null;
       if (triage && !scanResult) setScanResult(triage);
       const resolvedInfractionNumber = triage?.fields.infractionNumber ?? infractionNumber;
       const resolvedCategory = triage?.fields.category ?? category;
@@ -137,12 +163,16 @@ export default function NewCaseScreen() {
       }
       const created = await createCase({
         infractionNumber: resolvedInfractionNumber,
+        processNumber: triage?.fields.processNumber ?? processNumber,
         category: resolvedCategory,
         subcategory: triage?.fields.subcategory ?? subcategory,
         description: description || triage?.fields.description || "",
         vehiclePlate: triage?.fields.vehiclePlate ?? vehiclePlate,
-        rntrc,
-        amount: Number((triage?.fields.amount ?? amount).replace(",", ".")) || 0
+        driverName: triage?.fields.driverName ?? driverName,
+        rntrc: triage?.fields.rntrc ?? rntrc,
+        authority: triage?.fields.authority ?? authority,
+        location: triage?.fields.location ?? location,
+        amount: parseMoney(triage?.fields.amount ?? amount)
       });
       createdCaseId = created.id;
       if (selectedDocument) {
@@ -187,7 +217,7 @@ export default function NewCaseScreen() {
       <Panel title="Captura do documento">
         <View style={styles.uploadBox}>
           <Text style={styles.uploadTitle}>Fotografar ou anexar documento</Text>
-          <Text style={styles.body}>Use a camera do celular, selecione uma imagem ou anexe um PDF. O arquivo entra no prontuario com confirmacao humana antes do OCR.</Text>
+          <Text style={styles.body}>Use a camera do celular, selecione uma imagem ou anexe um PDF. Se o OCR do aparelho ou PDF permitir copiar texto, cole abaixo para preencher todos os campos do auto.</Text>
           <View style={styles.captureActions}>
             <CaptureButton label="Tirar foto" onPress={takePhoto} />
             <CaptureButton label="Escolher imagem" onPress={chooseImage} />
@@ -214,16 +244,31 @@ export default function NewCaseScreen() {
           ) : (
             <Pill text="Foto, imagem ou PDF" tone="#5c7fa8" />
           )}
+          <View style={styles.ocrTextBox}>
+            <Text style={styles.label}>Texto OCR ou texto copiado do PDF</Text>
+            <TextInput
+              multiline
+              value={ocrText}
+              onChangeText={setOcrText}
+              placeholder="Cole aqui o texto reconhecido da notificacao para extrair numero do auto, autuado, CNPJ, placa, RNTRC, valor, artigo, local e datas."
+              style={[styles.input, styles.ocrTextArea]}
+              placeholderTextColor="#98a2b3"
+            />
+          </View>
         </View>
       </Panel>
 
       <Panel title="Dados iniciais">
         <View style={styles.formGrid}>
           <Field label="Numero do documento" value={infractionNumber} onChangeText={setInfractionNumber} placeholder="AI-000000/2026" />
+          <Field label="Processo" value={processNumber} onChangeText={setProcessNumber} placeholder="Processo administrativo" />
           <Field label="Categoria" value={category} onChangeText={setCategory} placeholder="Transporte, fiscal, trabalhista, transito" />
           <Field label="Subcategoria" value={subcategory} onChangeText={setSubcategory} placeholder="Descricao operacional" />
           <Field label="Placa" value={vehiclePlate} onChangeText={setVehiclePlate} placeholder="ABC-1D23" autoCapitalize="characters" />
+          <Field label="Condutor" value={driverName} onChangeText={setDriverName} placeholder="Nome do condutor" />
           <Field label="RNTRC" value={rntrc} onChangeText={setRntrc} placeholder="00000000" keyboardType="numeric" />
+          <Field label="Orgao" value={authority} onChangeText={setAuthority} placeholder="ANTT, PRF, SEFAZ, DETRAN" />
+          <Field label="Local" value={location} onChangeText={setLocation} placeholder="Municipio/UF ou trecho" />
           <Field label="Valor estimado" value={amount} onChangeText={setAmount} placeholder="1500,00" keyboardType="decimal-pad" />
         </View>
         <View style={styles.descriptionField}>
@@ -260,36 +305,174 @@ function CaptureButton({ label, onPress }: { label: string; onPress: () => void 
   );
 }
 
-async function scanSelectedDocument(document: SelectedDocument): Promise<ScanResult> {
+async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): Promise<ScanResult> {
   await new Promise((resolve) => setTimeout(resolve, 350));
-  const source = decodeURIComponent(document.name).replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ");
+  const source = [
+    ocrText,
+    decodeURIComponent(document.name).replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")
+  ].filter(Boolean).join("\n");
   const normalized = source.toUpperCase();
-  const infractionNumber = normalized.match(/\b(?:AI|AIT|AUTO|INFRA[CÇ][AÃ]O|MULTA)\s*[-./:]?\s*([A-Z0-9]{3,}[-./]?\d{2,})\b/)?.[1];
-  const vehiclePlate = normalized.match(/\b[A-Z]{3}[- ]?\d[A-Z0-9]\d{2}\b/)?.[0]?.replace(" ", "-");
-  const amount = normalized.match(/\b(?:R\$|VALOR)\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)\b/)?.[1];
+  const infractionNumber =
+    capture(normalized, /N[ºO]?\s*DO\s*AUTO\s*DE\s*INFRA[CÇ][AÃ]O\s+([A-Z0-9.-]{8,})/) ??
+    capture(normalized, /\b(FELTF\d{8,})\b/) ??
+    capture(normalized, /\b(?:AI|AIT|AUTO|INFRA[CÇ][AÃ]O|MULTA)\s*[-./:]?\s*([A-Z0-9]{3,}[-./]?\d{2,})\b/);
+  const processNumber = capture(normalized, /PROCESSO\s+ADMINISTRATIVO\s+([0-9./-]{8,})/);
+  const vehiclePlate = normalizePlate(
+    capture(normalized, /PLACA\s*\/?\s*UF\s+([A-Z0-9-]{7,8})/) ??
+    capture(normalized, /\b[A-Z]{3}[- ]?\d[A-Z0-9]\d{2}\b/)
+  );
+  const rntrc = capture(normalized, /\bRNTRC\s+([0-9]{6,12})\b/);
+  const amount =
+    capture(normalized, /MULTA(?:\s+DE)?\s+R\$\s*([0-9.]+,\d{2})/) ??
+    capture(normalized, /VALOR(?:\s+DA\s+MULTA)?\s*R\$\s*([0-9.]+,\d{2})/) ??
+    capture(normalized, /R\$\s*([0-9.]+,\d{2})/);
+  const autuadoName = capture(normalized, /IDENTIFICA[CÇ][AÃ]O\s+DO\s+AUTUADO[\s\S]*?NOME\s+([A-Z0-9 .&/-]+?)\s+(?:CPF|CNPJ|CPF\/CNPJ)/);
+  const autuadoDocument = capture(normalized, /(?:CPF|CNPJ|CPF\/CNPJ)\s+([0-9./-]{11,18})/);
+  const address = capture(normalized, /ENDERE[CÇ]O\s+([A-Z0-9 .ºª,/-]+?)\s+MUNIC[IÍ]PIO/);
+  const origin = capture(normalized, /ORIGEM\s+([A-Z .,-]+?)\s+DESTINO/);
+  const destination = capture(normalized, /DESTINO\s+([A-Z .,-]+?)\s+DIST[ÂA]NCIA/);
+  const distanceKm = capture(normalized, /DIST[ÂA]NCIA(?:\s+DE\s+ORIGEM\/DESTINO)?\s*\(?KM\)?\s+([0-9.,]+)/);
+  const article = capture(normalized, /ARTIGO\s+([0-9]+[A-Z]?)/);
+  const code = capture(normalized, /C[ÓO]DIGO\s+([0-9.]+)/);
+  const issueDate = captureDate(normalized, /DATA\s+DE\s+EMISS[ÃA]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
+  const infractionDate = captureDate(normalized, /DATA\s+DA\s+INFRA[CÇ][AÃ]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
+  const defenseDeadline = captureDate(normalized, /AT[ÉE]\s+O\s+DIA\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
+  const location =
+    capture(normalized, /LOCAL\s+([A-Z0-9 .ºª,-]+?)\s+MUNIC[IÍ]PIO/) ??
+    [capture(normalized, /MUNIC[IÍ]PIO\s+([A-Z .-]+)/), capture(normalized, /\bUF\s+([A-Z]{2})\b/)].filter(Boolean).join("/");
+  const authority = normalized.includes("ANTT") ? "ANTT" : inferAuthority(normalized);
   const category = inferCategory(normalized);
+  const subcategory = inferSubcategory(normalized);
   const notes: string[] = [];
 
   if (infractionNumber) notes.push(`Numero identificado: ${infractionNumber}`);
+  if (processNumber) notes.push(`Processo identificado: ${processNumber}`);
+  if (autuadoName) notes.push(`Autuado identificado: ${toTitleCase(autuadoName)}`);
+  if (autuadoDocument) notes.push(`Documento do autuado identificado: ${autuadoDocument}`);
   if (vehiclePlate) notes.push(`Placa identificada: ${vehiclePlate}`);
+  if (rntrc) notes.push(`RNTRC identificado: ${rntrc}`);
   if (amount) notes.push(`Valor identificado: R$ ${amount}`);
-  if (category !== "Transporte") notes.push(`Categoria sugerida: ${category}`);
+  if (article || code) notes.push(`Enquadramento identificado: ${[article ? `art. ${article}` : "", code ? `codigo ${code}` : ""].filter(Boolean).join(" / ")}`);
+  if (defenseDeadline) notes.push(`Prazo citado para defesa: ${defenseDeadline}`);
+  if (category) notes.push(`Categoria sugerida: ${category}`);
   if (notes.length === 0) notes.push("Nao encontrei campos confiaveis no nome do arquivo; preenchi uma classificacao inicial para revisao.");
 
-  const confidence = Math.min(92, 42 + (infractionNumber ? 18 : 0) + (vehiclePlate ? 16 : 0) + (amount ? 12 : 0) + (category !== "Transporte" ? 12 : 0));
+  const confidence = Math.min(
+    96,
+    30 +
+      (infractionNumber ? 14 : 0) +
+      (autuadoName ? 9 : 0) +
+      (autuadoDocument ? 8 : 0) +
+      (vehiclePlate ? 10 : 0) +
+      (rntrc ? 8 : 0) +
+      (amount ? 8 : 0) +
+      (origin || destination ? 6 : 0) +
+      (article || code ? 6 : 0) +
+      (issueDate || infractionDate || defenseDeadline ? 7 : 0)
+  );
 
   return {
     confidence,
     notes,
     fields: {
       infractionNumber,
+      processNumber,
       category,
-      subcategory: inferSubcategory(normalized),
+      subcategory,
       vehiclePlate,
+      driverName: capture(normalized, /NOME\s+DO\s+CONDUTOR\s+([A-Z .'-]+?)(?:\s+CPF|\s+CNH|$)/),
+      rntrc,
+      authority,
+      location,
       amount,
-      description: `Documento ${document.name} lido por triagem inteligente. Conferir numero, orgao, prazo, enquadramento e valor antes de prosseguir.`
+      autuadoName: autuadoName ? toTitleCase(autuadoName) : undefined,
+      autuadoDocument,
+      address: address ? toTitleCase(address) : undefined,
+      origin: origin ? toTitleCase(origin) : undefined,
+      destination: destination ? toTitleCase(destination) : undefined,
+      distanceKm,
+      article,
+      code,
+      issueDate,
+      infractionDate,
+      defenseDeadline,
+      description: buildExtractedDescription({
+        documentName: document.name,
+        autuadoName,
+        autuadoDocument,
+        address,
+        origin,
+        destination,
+        distanceKm,
+        article,
+        code,
+        issueDate,
+        infractionDate,
+        defenseDeadline,
+        processNumber
+      })
     }
   };
+}
+
+function capture(text: string, pattern: RegExp) {
+  return text.match(pattern)?.[1]?.replace(/\s+/g, " ").trim();
+}
+
+function captureDate(text: string, pattern: RegExp) {
+  return capture(text, pattern);
+}
+
+function normalizePlate(value?: string) {
+  if (!value) return undefined;
+  const compact = value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  return compact.length === 7 ? `${compact.slice(0, 3)}-${compact.slice(3)}` : value.trim().toUpperCase();
+}
+
+function inferAuthority(text: string) {
+  if (text.includes("SEFAZ")) return "SEFAZ";
+  if (text.includes("DETRAN")) return "DETRAN";
+  if (text.includes("PRF")) return "PRF";
+  if (text.includes("MTE") || text.includes("MINISTERIO DO TRABALHO")) return "MTE";
+  return "Orgao informado";
+}
+
+function buildExtractedDescription(fields: {
+  documentName: string;
+  autuadoName?: string;
+  autuadoDocument?: string;
+  address?: string;
+  origin?: string;
+  destination?: string;
+  distanceKm?: string;
+  article?: string;
+  code?: string;
+  issueDate?: string;
+  infractionDate?: string;
+  defenseDeadline?: string;
+  processNumber?: string;
+}) {
+  const lines = [
+    `Documento ${fields.documentName} lido por triagem inteligente. Conferencia humana obrigatoria antes de defesa/recurso.`,
+    fields.processNumber ? `Processo: ${fields.processNumber}.` : "",
+    fields.autuadoName || fields.autuadoDocument ? `Autuado: ${[toTitleCase(fields.autuadoName), fields.autuadoDocument].filter(Boolean).join(" - ")}.` : "",
+    fields.address ? `Endereco do autuado: ${toTitleCase(fields.address)}.` : "",
+    fields.origin || fields.destination || fields.distanceKm ? `Rota/distancia: ${[fields.origin ? `origem ${toTitleCase(fields.origin)}` : "", fields.destination ? `destino ${toTitleCase(fields.destination)}` : "", fields.distanceKm ? `${fields.distanceKm} km` : ""].filter(Boolean).join("; ")}.` : "",
+    fields.article || fields.code ? `Enquadramento: ${[fields.article ? `artigo ${fields.article}` : "", fields.code ? `codigo ${fields.code}` : ""].filter(Boolean).join("; ")}.` : "",
+    fields.infractionDate || fields.issueDate || fields.defenseDeadline ? `Datas: ${[fields.infractionDate ? `infracao ${fields.infractionDate}` : "", fields.issueDate ? `emissao ${fields.issueDate}` : "", fields.defenseDeadline ? `prazo defesa ${fields.defenseDeadline}` : ""].filter(Boolean).join("; ")}.` : ""
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+function toTitleCase(value?: string) {
+  if (!value) return "";
+  return value.toLowerCase().replace(/(^|\s)([a-zà-ú])/g, (match) => match.toUpperCase());
+}
+
+function parseMoney(value: string) {
+  const normalized = value.trim().replace(/\./g, "").replace(",", ".");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 function inferCategory(text: string) {
@@ -386,6 +569,8 @@ const styles = StyleSheet.create({
   scanSummary: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#dce5ef", borderRadius: 8, padding: 10, gap: 4, marginTop: 4 },
   scanTitle: { color: "#101828", fontWeight: "900", fontSize: 13 },
   scanNote: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  ocrTextBox: { gap: 6, marginTop: 8 },
+  ocrTextArea: { minHeight: 120, paddingTop: 12, textAlignVertical: "top" },
   formGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   field: { minWidth: 240, flex: 1, gap: 6 },
   descriptionField: { gap: 6, marginTop: 12 },

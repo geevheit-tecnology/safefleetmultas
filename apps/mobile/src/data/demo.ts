@@ -6,6 +6,7 @@ export type RegulatoryCase = {
   organizationId: string;
   caseNumber: string;
   infractionNumber?: string;
+  processNumber?: string;
   category: string;
   subcategory: string;
   description: string;

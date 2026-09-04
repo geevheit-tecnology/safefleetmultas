@@ -55,11 +55,14 @@ export default function CaseDetailScreen() {
   const [reason, setReason] = useState("Avanco operacional validado.");
   const [editingCase, setEditingCase] = useState(false);
   const [editInfractionNumber, setEditInfractionNumber] = useState("");
+  const [editProcessNumber, setEditProcessNumber] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editSubcategory, setEditSubcategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editVehiclePlate, setEditVehiclePlate] = useState("");
+  const [editDriverName, setEditDriverName] = useState("");
   const [editRntrc, setEditRntrc] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [editAuthority, setEditAuthority] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [deadlineType, setDeadlineType] = useState("Validar prazo de defesa");
@@ -126,11 +129,14 @@ export default function CaseDetailScreen() {
 
   const fillEditForm = (caseItem: RegulatoryCase) => {
     setEditInfractionNumber(caseItem.infractionNumber ?? "");
+    setEditProcessNumber(caseItem.processNumber ?? "");
     setEditCategory(caseItem.category);
     setEditSubcategory(caseItem.subcategory ?? "");
     setEditDescription(caseItem.description ?? "");
     setEditVehiclePlate(caseItem.vehiclePlate ?? "");
+    setEditDriverName(caseItem.driverName ?? "");
     setEditRntrc(caseItem.rntrc ?? "");
+    setEditLocation(caseItem.location ?? "");
     setEditAuthority(caseItem.authority);
     setEditAmount(String(caseItem.amount || ""));
   };
@@ -142,11 +148,14 @@ export default function CaseDetailScreen() {
       const updated = await updateCase({
         id: item.id,
         infractionNumber: editInfractionNumber,
+        processNumber: editProcessNumber,
         category: editCategory,
         subcategory: editSubcategory,
         description: editDescription,
         vehiclePlate: editVehiclePlate,
+        driverName: editDriverName,
         rntrc: editRntrc,
+        location: editLocation,
         authority: editAuthority,
         amount: Number(editAmount.replace(",", ".")) || 0
       });
@@ -468,10 +477,13 @@ export default function CaseDetailScreen() {
         <Panel title="Editar multa">
           <View style={styles.editGrid}>
             <TextInput value={editInfractionNumber} onChangeText={setEditInfractionNumber} style={styles.input} placeholder="Numero do auto" placeholderTextColor="#98a2b3" />
+            <TextInput value={editProcessNumber} onChangeText={setEditProcessNumber} style={styles.input} placeholder="Processo" placeholderTextColor="#98a2b3" />
             <TextInput value={editCategory} onChangeText={setEditCategory} style={styles.input} placeholder="Categoria" placeholderTextColor="#98a2b3" />
             <TextInput value={editSubcategory} onChangeText={setEditSubcategory} style={styles.input} placeholder="Subcategoria" placeholderTextColor="#98a2b3" />
             <TextInput value={editVehiclePlate} onChangeText={setEditVehiclePlate} style={styles.input} placeholder="Placa" placeholderTextColor="#98a2b3" autoCapitalize="characters" />
+            <TextInput value={editDriverName} onChangeText={setEditDriverName} style={styles.input} placeholder="Condutor" placeholderTextColor="#98a2b3" />
             <TextInput value={editRntrc} onChangeText={setEditRntrc} style={styles.input} placeholder="RNTRC" placeholderTextColor="#98a2b3" />
+            <TextInput value={editLocation} onChangeText={setEditLocation} style={styles.input} placeholder="Local" placeholderTextColor="#98a2b3" />
             <TextInput value={editAuthority} onChangeText={setEditAuthority} style={styles.input} placeholder="Orgao" placeholderTextColor="#98a2b3" />
             <TextInput value={editAmount} onChangeText={setEditAmount} style={styles.input} placeholder="Valor" placeholderTextColor="#98a2b3" keyboardType="decimal-pad" />
           </View>
@@ -494,6 +506,9 @@ export default function CaseDetailScreen() {
         <InfoCard label="Placa" value={item.vehiclePlate ?? "nao informado"} />
         <InfoCard label="RNTRC" value={item.rntrc ?? "nao informado"} />
         <InfoCard label="Orgao" value={item.authority} />
+        <InfoCard label="Processo" value={item.processNumber ?? "nao informado"} />
+        <InfoCard label="Condutor" value={item.driverName ?? "nao informado"} />
+        <InfoCard label="Local" value={item.location ?? "nao informado"} />
       </View>
 
       <Panel title="Avancar status">

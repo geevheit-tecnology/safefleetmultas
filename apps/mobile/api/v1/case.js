@@ -1107,6 +1107,7 @@ async function loadCase(client, orgId, id) {
     organizationId: row.organization_id,
     caseNumber: row.case_number,
     infractionNumber: row.infraction_number,
+    processNumber: row.process_number,
     category: row.category,
     subcategory: row.subcategory || "",
     description: row.description || "",

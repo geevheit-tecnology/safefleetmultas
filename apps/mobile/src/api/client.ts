@@ -1040,11 +1040,14 @@ export async function updateTaskStatus(id: string, status: "PENDING" | "IN_PROGR
 
 export type CreateCaseInput = {
   infractionNumber: string;
+  processNumber?: string;
   category: string;
   subcategory: string;
   description: string;
   vehiclePlate: string;
+  driverName?: string;
   rntrc: string;
+  location?: string;
   amount: number;
   authority?: string;
 };
@@ -1058,6 +1061,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       organizationId: "local",
       caseNumber: `SF-${Date.now()}`,
       infractionNumber: input.infractionNumber,
+      processNumber: input.processNumber,
       category: input.category,
       subcategory: input.subcategory,
       description: input.description,
@@ -1068,7 +1072,9 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       riskScore: 0,
       riskLevel: "LOW",
       vehiclePlate: input.vehiclePlate,
+      driverName: input.driverName,
       rntrc: input.rntrc,
+      location: input.location,
       authority: input.authority || "Orgao informado",
       responsible: "Nao definido",
       deadlines: [],
@@ -1099,11 +1105,14 @@ export async function updateCase(input: CreateCaseInput & { id: string }): Promi
     return {
       ...item,
       infractionNumber: input.infractionNumber,
+      processNumber: input.processNumber,
       category: input.category,
       subcategory: input.subcategory,
       description: input.description,
       vehiclePlate: input.vehiclePlate,
+      driverName: input.driverName,
       rntrc: input.rntrc,
+      location: input.location,
       amount: input.amount,
       authority: input.authority || item.authority
     };

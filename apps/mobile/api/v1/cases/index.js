@@ -11,6 +11,7 @@ function mapCase(row) {
     organizationId: row.organization_id,
     caseNumber: row.case_number,
     infractionNumber: row.infraction_number,
+    processNumber: row.process_number,
     category: row.category,
     subcategory: row.subcategory || "",
     description: row.description || "",
@@ -61,12 +62,16 @@ async function createCase(req, res) {
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
   const orgId = organizationId(req);
   const infractionNumber = String(body.infractionNumber || "").trim();
+  const processNumber = String(body.processNumber || "").trim();
   const category = String(body.category || "").trim();
   const subcategory = String(body.subcategory || "").trim();
   const description = String(body.description || "").trim();
   const vehiclePlate = String(body.vehiclePlate || "").trim().toUpperCase();
+  const driverName = String(body.driverName || "").trim();
   const rntrc = String(body.rntrc || "").trim();
+  const location = String(body.location || "").trim();
   const amount = Number(body.amount || 0);
+  const authority = String(body.authority || "Orgao informado").trim();
 
   if (!infractionNumber || !category) {
     return sendJson(res, 400, { error: "validation_error", message: "Numero do auto e categoria sao obrigatorios." });
@@ -95,12 +100,12 @@ async function createCase(req, res) {
         insert into regulatory_cases (
           organization_id, case_number, infraction_number, category, subcategory, description,
           event_date, received_at, amount, status, risk_score, risk_level, vehicle_plate,
-          rntrc, authority, source
+          driver_name, rntrc, location, authority, source, process_number
         )
-        values ($1, $2, $3, $4, $5, $6, current_date, current_date, $7, 'RECEIVED', $8, $9, $10, $11, 'ANTT', 'WEB')
+        values ($1, $2, $3, $4, $5, $6, current_date, current_date, $7, 'RECEIVED', $8, $9, $10, $11, $12, $13, $14, 'WEB', $15)
         returning *
         `,
-        [orgId, caseNumber, infractionNumber, category, subcategory, description, amount, risk.score, risk.level, vehiclePlate || null, rntrc || null]
+        [orgId, caseNumber, infractionNumber, category, subcategory, description, amount, risk.score, risk.level, vehiclePlate || null, driverName || null, rntrc || null, location || null, authority || "Orgao informado", processNumber || null]
       );
       const assessment = await client.query(
         `
@@ -167,11 +172,14 @@ async function updateCase(req, res) {
   if (!id) return sendJson(res, 400, { error: "validation_error", message: "Prontuario obrigatorio." });
 
   const infractionNumber = String(body.infractionNumber || "").trim();
+  const processNumber = String(body.processNumber || "").trim();
   const category = String(body.category || "").trim();
   const subcategory = String(body.subcategory || "").trim();
   const description = String(body.description || "").trim();
   const vehiclePlate = String(body.vehiclePlate || "").trim().toUpperCase();
+  const driverName = String(body.driverName || "").trim();
   const rntrc = String(body.rntrc || "").trim();
+  const location = String(body.location || "").trim();
   const amount = Number(body.amount || 0);
   const authority = String(body.authority || "Orgao informado").trim();
 
@@ -213,11 +221,14 @@ async function updateCase(req, res) {
             authority = $10,
             risk_score = $11,
             risk_level = $12,
+            process_number = $13,
+            driver_name = $14,
+            location = $15,
             updated_at = now()
         where organization_id = $1 and id = $2
         returning *
         `,
-        [orgId, id, infractionNumber, category, subcategory, description, amount, vehiclePlate || null, rntrc || null, authority, risk.score, risk.level]
+        [orgId, id, infractionNumber, category, subcategory, description, amount, vehiclePlate || null, rntrc || null, authority, risk.score, risk.level, processNumber || null, driverName || null, location || null]
       );
       await client.query(
         "insert into case_events (organization_id, case_id, action, description) values ($1, $2, 'CASE_UPDATED', $3)",
