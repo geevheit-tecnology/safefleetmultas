@@ -2,7 +2,8 @@
 
 ## Frontend Vercel
 
-Projeto: `apps/mobile`.
+No projeto do Vercel, configure `Root Directory` como `apps/mobile`. O
+`vercel.json` dessa pasta executa o build e publica `dist`.
 
 Variavel principal:
 
@@ -11,7 +12,7 @@ Variavel principal:
 Build:
 
 ```sh
-npx expo export --platform web --clear
+npm run web:export
 ```
 
 Output: `dist`.
