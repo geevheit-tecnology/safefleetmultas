@@ -15,6 +15,7 @@ export default function AdminScreen() {
   const [saving, setSaving] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const { codeLabel } = useLanguage();
+  const canCreateUser = name.trim().length >= 3 && email.includes("@") && password.length >= 8 && !saving;
 
   const loadSummary = () => {
     void getSecuritySummary()
@@ -27,6 +28,10 @@ export default function AdminScreen() {
   }, []);
 
   const submitUser = async () => {
+    if (!canCreateUser) {
+      setError("Informe nome, e-mail valido e senha inicial com pelo menos 8 caracteres.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -44,6 +49,8 @@ export default function AdminScreen() {
   };
 
   const removeUser = async (userId: string) => {
+    const confirmed = typeof window === "undefined" ? true : window.confirm("Excluir este usuario? Esta acao remove o acesso dele ao SafeFleet.");
+    if (!confirmed) return;
     setRemovingUserId(userId);
     setError(null);
     try {
@@ -91,7 +98,7 @@ export default function AdminScreen() {
                     </Pressable>
                   ))}
                 </View>
-                <Pressable disabled={saving} onPress={submitUser} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, saving && styles.disabled]}>
+                <Pressable disabled={!canCreateUser} onPress={submitUser} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, !canCreateUser && styles.disabled]}>
                   <Text style={styles.primaryButtonText}>{saving ? "Salvando..." : "Criar usuario"}</Text>
                 </Pressable>
               </View>

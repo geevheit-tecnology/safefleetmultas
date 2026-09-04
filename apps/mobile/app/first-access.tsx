@@ -11,8 +11,13 @@ export default function FirstAccessScreen() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canSubmit = name.trim().length >= 3 && email.includes("@") && password.length >= 8 && !saving;
 
   const submit = async () => {
+    if (!canSubmit) {
+      setError("Informe nome, e-mail valido e senha com pelo menos 8 caracteres.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -37,7 +42,7 @@ export default function FirstAccessScreen() {
         <TextInput value={password} onChangeText={setPassword} style={styles.input} placeholder="Senha inicial" placeholderTextColor="#98a2b3" secureTextEntry />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {message ? <Text style={styles.success}>{message}</Text> : null}
-        <Pressable disabled={saving} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, saving && styles.disabled]}>
+        <Pressable disabled={!canSubmit} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, !canSubmit && styles.disabled]}>
           <Text style={styles.buttonText}>{saving ? "Criando..." : "Criar ADMIN"}</Text>
         </Pressable>
         <Link href="/login" style={styles.link}>Voltar ao login</Link>
