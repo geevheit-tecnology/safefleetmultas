@@ -4,6 +4,9 @@
     "slug": "safefleet",
     "scheme": "safefleet",
     "platforms": ["ios", "android", "web"],
+    "android": {
+      "package": "com.geevheit.safefleet"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "web": {

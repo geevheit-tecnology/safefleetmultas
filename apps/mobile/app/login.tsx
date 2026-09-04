@@ -10,6 +10,7 @@ export default function LoginScreen() {
   const greeting = getGreeting();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
@@ -25,7 +26,11 @@ export default function LoginScreen() {
       await login(email, password);
       router.replace("/");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Nao foi possivel entrar.");
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Nao foi possivel entrar.",
+      );
     } finally {
       setLoading(false);
     }
@@ -36,11 +41,18 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <View style={styles.presentation}>
           <View style={styles.mark}>
-            <MaterialCommunityIcons name="shield-check" size={24} color="#fff" />
+            <MaterialCommunityIcons
+              name="shield-check"
+              size={24}
+              color="#fff"
+            />
           </View>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.heroTitle}>SafeFleet</Text>
-          <Text style={styles.heroText}>Gestao executiva de multas, prazos, documentos e risco operacional para frotas.</Text>
+          <Text style={styles.heroText}>
+            Gestao executiva de multas, prazos, documentos e risco operacional
+            para frotas.
+          </Text>
           <View style={styles.signalList}>
             <Signal text="Triagem inteligente" />
             <Signal text="Linha de vida auditavel" />
@@ -51,34 +63,93 @@ export default function LoginScreen() {
         <View style={styles.panel}>
           <View style={styles.brand}>
             <View style={styles.logo}>
-              <MaterialCommunityIcons name="lock-check-outline" size={22} color="#9f2f2f" />
+              <MaterialCommunityIcons
+                name="lock-check-outline"
+                size={22}
+                color="#9f2f2f"
+              />
             </View>
             <View style={styles.brandText}>
               <Text style={styles.title}>SafeFleet</Text>
-              <Text style={styles.subtitle}>Acesso seguro ao painel operacional</Text>
+              <Text style={styles.subtitle}>
+                Acesso seguro ao painel operacional
+              </Text>
             </View>
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>E-mail</Text>
-            <TextInput value={email} onChangeText={setEmail} style={styles.input} placeholder="usuario@empresa.com.br" placeholderTextColor="#98a2b3" autoCapitalize="none" keyboardType="email-address" />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+              placeholder="usuario@empresa.com.br"
+              placeholderTextColor="#98a2b3"
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Senha</Text>
-            <TextInput value={password} onChangeText={setPassword} style={styles.input} placeholder="senha" placeholderTextColor="#98a2b3" secureTextEntry />
+            <View style={styles.passwordField}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                style={[styles.input, styles.passwordInput]}
+                placeholder="senha"
+                placeholderTextColor="#98a2b3"
+                secureTextEntry={!showPassword}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword ? "Ocultar senha" : "Mostrar senha"
+                }
+                onPress={() => setShowPassword((current) => !current)}
+                style={({ pressed }) => [
+                  styles.passwordToggle,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={21}
+                  color="#667085"
+                />
+              </Pressable>
+            </View>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Pressable disabled={!canSubmit} onPress={submit} style={({ pressed }) => [styles.button, pressed && styles.pressed, !canSubmit && styles.disabled]}>
-            <Text style={styles.buttonText}>{loading ? "Entrando..." : "Entrar"}</Text>
+          <Pressable
+            disabled={!canSubmit}
+            onPress={submit}
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.pressed,
+              !canSubmit && styles.disabled,
+            ]}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Entrando..." : "Entrar"}
+            </Text>
           </Pressable>
           <View style={styles.links}>
-            <Link href="/forgot-password" style={styles.link}>Recuperar senha</Link>
-            <Link href="/first-access" style={styles.link}>Primeiro acesso</Link>
+            <Link href="/forgot-password" style={styles.link}>
+              Recuperar senha
+            </Link>
+            <Link href="/first-access" style={styles.link}>
+              Primeiro acesso
+            </Link>
           </View>
           <View style={styles.accessBox}>
             <Text style={styles.accessTitle}>Web</Text>
-            <Text style={styles.note}>Abra pelo link da Vercel no navegador.</Text>
+            <Text style={styles.note}>
+              Abra pelo link da Vercel no navegador.
+            </Text>
             <Text style={styles.accessTitle}>App no celular</Text>
-            <Text style={styles.note}>No Chrome ou Safari, use Compartilhar/Adicionar a tela inicial para instalar o SafeFleet.</Text>
+            <Text style={styles.note}>
+              No Chrome ou Safari, use Compartilhar/Adicionar a tela inicial
+              para instalar o SafeFleet.
+            </Text>
           </View>
         </View>
       </View>
@@ -89,7 +160,11 @@ export default function LoginScreen() {
 function Signal({ text }: { text: string }) {
   return (
     <View style={styles.signal}>
-      <MaterialCommunityIcons name="check-circle-outline" size={16} color="#17745b" />
+      <MaterialCommunityIcons
+        name="check-circle-outline"
+        size={16}
+        color="#17745b"
+      />
       <Text style={styles.signalText}>{text}</Text>
     </View>
   );
@@ -103,33 +178,144 @@ function getGreeting() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#f5f6f8", alignItems: "center", justifyContent: "center", padding: 20 },
-  card: { width: "100%", maxWidth: 920, backgroundColor: tokens.colors.surface, borderRadius: 8, borderWidth: 1, borderColor: "#e3e6eb", padding: 0, overflow: "hidden", flexDirection: "row", flexWrap: "wrap", shadowColor: "#101828", shadowOpacity: 0.08, shadowRadius: 24, shadowOffset: { width: 0, height: 10 } },
-  presentation: { flex: 1.15, minWidth: 320, backgroundColor: "#fbfbfc", borderRightColor: "#edf0f4", borderRightWidth: 1, padding: 28, justifyContent: "center", gap: 12 },
-  mark: { width: 44, height: 44, borderRadius: 8, backgroundColor: "#9f2f2f", alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  greeting: { color: "#9f2f2f", fontSize: 13, fontWeight: "900", textTransform: "uppercase" },
-  heroTitle: { color: "#111827", fontSize: 32, lineHeight: 38, fontWeight: "900" },
+  page: {
+    flex: 1,
+    backgroundColor: "#f5f6f8",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 920,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e3e6eb",
+    padding: 0,
+    overflow: "hidden",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    shadowColor: "#101828",
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  presentation: {
+    flex: 1.15,
+    minWidth: 320,
+    backgroundColor: "#fbfbfc",
+    borderRightColor: "#edf0f4",
+    borderRightWidth: 1,
+    padding: 28,
+    justifyContent: "center",
+    gap: 12,
+  },
+  mark: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: "#9f2f2f",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  greeting: {
+    color: "#9f2f2f",
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  heroTitle: {
+    color: "#111827",
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: "900",
+  },
   heroText: { color: "#5f6673", fontSize: 15, lineHeight: 23, maxWidth: 420 },
   signalList: { gap: 8, marginTop: 8 },
   signal: { flexDirection: "row", alignItems: "center", gap: 8 },
   signalText: { color: "#344054", fontWeight: "800", fontSize: 13 },
-  panel: { flex: 0.85, minWidth: 320, padding: 28, gap: 14, justifyContent: "center" },
-  brand: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 },
+  panel: {
+    flex: 0.85,
+    minWidth: 320,
+    padding: 28,
+    gap: 14,
+    justifyContent: "center",
+  },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 6,
+  },
   brandText: { flex: 1, minWidth: 0 },
-  logo: { width: 42, height: 42, borderRadius: tokens.radius.md, backgroundColor: "#fff1f1", borderColor: "#f0c7c7", borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  title: { color: tokens.colors.text, fontSize: tokens.typography.title, fontWeight: "900" },
+  logo: {
+    width: 42,
+    height: 42,
+    borderRadius: tokens.radius.md,
+    backgroundColor: "#fff1f1",
+    borderColor: "#f0c7c7",
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    color: tokens.colors.text,
+    fontSize: tokens.typography.title,
+    fontWeight: "900",
+  },
   subtitle: { color: tokens.colors.muted, fontSize: 13 },
   field: { gap: 6 },
   label: { color: "#344054", fontWeight: "800", fontSize: 12 },
-  input: { borderWidth: 1, borderColor: tokens.colors.borderStrong, borderRadius: tokens.radius.md, height: 44, paddingHorizontal: 12, color: tokens.colors.text },
-  button: { backgroundColor: "#9f2f2f", borderRadius: tokens.radius.md, paddingVertical: 13, textDecorationLine: "none", alignItems: "center" },
+  input: {
+    borderWidth: 1,
+    borderColor: tokens.colors.borderStrong,
+    borderRadius: tokens.radius.md,
+    height: 44,
+    paddingHorizontal: 12,
+    color: tokens.colors.text,
+  },
+  passwordField: { position: "relative", justifyContent: "center" },
+  passwordInput: { paddingRight: 48 },
+  passwordToggle: {
+    position: "absolute",
+    right: 1,
+    height: 42,
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  button: {
+    backgroundColor: "#9f2f2f",
+    borderRadius: tokens.radius.md,
+    paddingVertical: 13,
+    textDecorationLine: "none",
+    alignItems: "center",
+  },
   buttonText: { color: "#fff", fontWeight: "900", textAlign: "center" },
   links: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  link: { color: tokens.colors.primary, fontWeight: "800", textDecorationLine: "none" },
-  accessBox: { borderWidth: 1, borderColor: "#edf0f4", borderRadius: 8, backgroundColor: "#fbfcfe", padding: 10, gap: 3 },
-  accessTitle: { color: "#344054", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  link: {
+    color: tokens.colors.primary,
+    fontWeight: "800",
+    textDecorationLine: "none",
+  },
+  accessBox: {
+    borderWidth: 1,
+    borderColor: "#edf0f4",
+    borderRadius: 8,
+    backgroundColor: "#fbfcfe",
+    padding: 10,
+    gap: 3,
+  },
+  accessTitle: {
+    color: "#344054",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
   note: { color: tokens.colors.muted, fontSize: 12, lineHeight: 18 },
   error: { color: "#b42318", fontWeight: "800" },
   pressed: { opacity: 0.82 },
-  disabled: { opacity: 0.55 }
+  disabled: { opacity: 0.55 },
 });
