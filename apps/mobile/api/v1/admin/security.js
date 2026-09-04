@@ -341,6 +341,35 @@ async function deleteUser(req, res) {
   });
 }
 
+async function ensureAuthSchema(client) {
+  await client.query(`create extension if not exists "pgcrypto"`);
+  await client.query(
+    `
+    create table if not exists user_credentials (
+      user_id uuid primary key references users(id) on delete cascade,
+      password_hash text not null,
+      password_salt text not null,
+      status text not null default 'ACTIVE',
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+    `
+  );
+  await client.query(
+    `
+    create table if not exists user_sessions (
+      id uuid primary key default gen_random_uuid(),
+      user_id uuid not null references users(id) on delete cascade,
+      token_hash text not null unique,
+      expires_at timestamptz not null,
+      created_at timestamptz not null default now()
+    )
+    `
+  );
+  await client.query("create index if not exists idx_user_sessions_user on user_sessions(user_id)");
+  await client.query("create index if not exists idx_user_sessions_expires on user_sessions(expires_at)");
+}
+
 async function ensureOrganization(client, orgId) {
   await client.query(
     "insert into organizations (id, name, document) values ($1, 'SafeFleet', 'FIRST_ACCESS') on conflict (id) do nothing",
