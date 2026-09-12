@@ -38,6 +38,19 @@ class RegulatoryCaseRoutes {
         route.get("/radar") { call.respond(service.radar()) }
         route.get("/notifications") { call.respond(service.notifications(call.organizationId())) }
         route.get("/audit") { call.respond(service.audit(call.organizationId())) }
+        
+        // Mock Auth
+        route.post("/admin/security") {
+            call.respond(mapOf(
+                "token" to "mock-token",
+                "user" to mapOf(
+                    "id" to "admin-1",
+                    "name" to "Administrador",
+                    "email" to "admin@safefleet.com",
+                    "role" to "ADMIN"
+                )
+            ))
+        }
     }
 
     private fun io.ktor.server.application.ApplicationCall.organizationId(): String =
