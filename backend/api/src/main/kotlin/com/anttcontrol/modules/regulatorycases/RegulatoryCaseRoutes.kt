@@ -42,28 +42,22 @@ class RegulatoryCaseRoutes {
         
         // Mock Auth
         route.post("/admin/security") {
-            call.respond(mapOf(
-                "token" to "mock-token",
-                "user" to mapOf(
-                    "id" to "admin-1",
-                    "name" to "Administrador",
-                    "email" to "admin@safefleet.com",
-                    "role" to "ADMIN"
-                )
-            ))
+            call.respond(MockLoginResponse("mock-token", MockUser("admin-1", "Administrador", "admin@safefleet.com", "ADMIN")))
         }
         route.get("/admin/security") {
-            call.respond(mapOf(
-                "user" to mapOf(
-                    "id" to "admin-1",
-                    "name" to "Administrador",
-                    "email" to "admin@safefleet.com",
-                    "role" to "ADMIN"
-                )
-            ))
+            call.respond(MockMeResponse(MockUser("admin-1", "Administrador", "admin@safefleet.com", "ADMIN")))
         }
     }
 
     private fun io.ktor.server.application.ApplicationCall.organizationId(): String =
         request.header("X-Organization-Id") ?: System.getenv("DEMO_ORGANIZATION_ID") ?: "org-demo"
 }
+
+@kotlinx.serialization.Serializable
+data class MockUser(val id: String, val name: String, val email: String, val role: String)
+
+@kotlinx.serialization.Serializable
+data class MockLoginResponse(val token: String, val user: MockUser)
+
+@kotlinx.serialization.Serializable
+data class MockMeResponse(val user: MockUser)
