@@ -23,7 +23,20 @@ class Database(private val dataSource: HikariDataSource?) {
             return Database(HikariDataSource(config))
         }
 
-        private fun normalizeJdbcUrl(url: String): String =
-            if (url.startsWith("jdbc:")) url else "jdbc:$url"
+        private fun normalizeJdbcUrl(url: String): String {
+            if (url.startsWith("jdbc:")) return url
+            
+            // Converte postgresql://user:pass@host:port/db para jdbc:postgresql://host:port/db?user=user&password=pass
+            val regex = Regex("postgresql://([^:]+):([^@]+)@([^/]+)/(.+)")
+            val match = regex.matchEntire(url)
+            
+            if (match != null) {
+                val (user, pass, host, dbAndParams) = match.destructured
+                val separator = if (dbAndParams.contains("?")) "&" else "?"
+                return "jdbc:postgresql://$host/$dbAndParams${separator}user=$user&password=$pass"
+            }
+            
+            return "jdbc:$url"
+        }
     }
 }
