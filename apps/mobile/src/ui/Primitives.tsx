@@ -19,7 +19,7 @@ export function Button({ label, onPress, tone = "primary", disabled = false }: {
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, tone === "secondary" && styles.secondaryButton, tone === "danger" && styles.dangerButton, pressed && styles.pressed, disabled && styles.disabled]}
+      style={({ pressed }) => [styles.button, { backgroundImage: tone === "primary" ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' : undefined } as any, tone === "secondary" && styles.secondaryButton, tone === "danger" && styles.dangerButton, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Text style={[styles.buttonText, tone === "secondary" && styles.secondaryButtonText]}>{label}</Text>
     </Pressable>
@@ -75,31 +75,35 @@ export function Pill({ text, tone = "#5c7fa8" }: { text: string; tone?: string }
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
     borderRadius: tokens.radius.lg,
-    borderColor: tokens.colors.border,
+    borderColor: "rgba(255,255,255,0.6)",
     borderWidth: tokens.elevation.border,
     padding: tokens.spacing.xl,
     gap: tokens.spacing.md,
     shadowColor: tokens.colors.brand,
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2
-  },
+  } as any,
   panelHeader: { borderBottomWidth: 1, borderBottomColor: tokens.colors.border, paddingBottom: tokens.spacing.md },
   panelTitle: { color: tokens.colors.text, fontSize: tokens.typography.section, fontWeight: "900", letterSpacing: -0.5 },
   button: { minHeight: 46, justifyContent: "center", borderRadius: tokens.radius.lg, paddingHorizontal: 18, backgroundColor: tokens.colors.primary, shadowColor: tokens.colors.primary, shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
-  secondaryButton: { backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.borderStrong, shadowOpacity: 0 },
+  secondaryButton: { backgroundColor: "rgba(255,255,255,0.6)", borderWidth: 1, borderColor: tokens.colors.borderStrong, shadowOpacity: 0 },
   dangerButton: { backgroundColor: tokens.colors.danger, shadowColor: tokens.colors.danger },
   buttonText: { color: "#ffffff", fontWeight: "800", textAlign: "center", fontSize: tokens.typography.body, letterSpacing: 0.2 },
   secondaryButtonText: { color: tokens.colors.text },
-  input: { borderWidth: 1, borderColor: tokens.colors.borderStrong, borderRadius: tokens.radius.md, minHeight: 46, paddingHorizontal: 14, color: tokens.colors.text, backgroundColor: tokens.colors.surface },
+  input: { borderWidth: 1, borderColor: tokens.colors.borderStrong, borderRadius: tokens.radius.md, minHeight: 46, paddingHorizontal: 14, color: tokens.colors.text, backgroundColor: "rgba(255,255,255,0.8)" },
   info: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
     borderRadius: tokens.radius.lg,
     borderWidth: tokens.elevation.border,
-    borderColor: tokens.colors.border,
+    borderColor: "rgba(255,255,255,0.6)",
     paddingHorizontal: 16,
     paddingVertical: 16,
     minWidth: tokens.components.cardMinWidth,
@@ -107,11 +111,11 @@ const styles = StyleSheet.create({
     minHeight: 100,
     justifyContent: "space-between",
     shadowColor: tokens.colors.brand,
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 1
-  },
+  } as any,
   infoLabel: { color: tokens.colors.muted, fontSize: tokens.typography.caption, fontWeight: "700", lineHeight: 18, flexShrink: 1, letterSpacing: 0.3 },
   infoValue: { fontWeight: "900", fontSize: 26, lineHeight: 32, marginTop: 12, flexShrink: 1, letterSpacing: -0.5 },
   muted: { color: tokens.colors.muted, fontSize: tokens.typography.caption, flexShrink: 1 },

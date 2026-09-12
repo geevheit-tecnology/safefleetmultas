@@ -26,13 +26,28 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
+      {/* INJECTION DE FONTE PREMIUM E CSS GLOBAL PARA A WEB */}
+      {typeof window !== "undefined" && (
+        <style type="text/css">
+          {`
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+            * { font-family: 'Inter', sans-serif !important; }
+            body { background-color: #f8fafc; }
+            /* Esconde scrollbar para ficar com visual de app */
+            ::-webkit-scrollbar { width: 8px; height: 8px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+          `}
+        </style>
+      )}
       <Stack
         screenOptions={{
           headerShown: false,
-          headerStyle: { backgroundColor: "#eef4fb" },
-          headerTintColor: "#26364f",
+          headerStyle: { backgroundColor: "#f8fafc" },
+          headerTintColor: "#0f172a",
           headerTitleStyle: { fontWeight: "700" },
-          contentStyle: { backgroundColor: "#f6f8fb" }
+          contentStyle: { backgroundColor: "#f8fafc" }
         }}
       />
     </LanguageProvider>

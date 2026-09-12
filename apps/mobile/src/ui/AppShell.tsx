@@ -44,11 +44,11 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
   };
 
   return (
-    <View style={styles.shell}>
+    <View style={[styles.shell, { backgroundImage: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)' } as any]}>
       {isWide ? (
-        <View style={styles.sidebar}>
+        <View style={[styles.sidebar, { backgroundColor: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any]}>
           <View style={styles.brand}>
-            <View style={styles.logo}>
+            <View style={[styles.logo, { backgroundImage: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' } as any]}>
               <MaterialCommunityIcons name="shield-check" size={18} color="#fff" />
             </View>
             <View>
@@ -63,7 +63,7 @@ export function AppShell({ title, subtitle, children }: { title: string; subtitl
       ) : null}
 
       <View style={styles.main}>
-        <View style={styles.topbar}>
+        <View style={[styles.topbar, { backgroundColor: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' } as any]}>
           <View style={styles.heading}>
             <Text style={styles.kicker}>{t("organization")}</Text>
             <Text style={styles.title}>{title}</Text>
