@@ -4,6 +4,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.request.header
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
 class RegulatoryCaseRoutes {
