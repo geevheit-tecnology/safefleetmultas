@@ -31,7 +31,20 @@ export default function RootLayout() {
         <style type="text/css">
           {`
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-            * { font-family: 'Inter', sans-serif !important; }
+            
+            /* Applica Inter apenas em elementos de texto normais, pulando fontes de icones */
+            body, div, span, p, h1, h2, h3, h4, h5, h6, input, button {
+              font-family: 'Inter', sans-serif;
+            }
+            
+            /* Evita que o RN Web sobrescreva com system-ui, sem quebrar icones */
+            [dir="auto"] {
+               font-family: 'Inter', sans-serif !important;
+            }
+            [style*="font-family: Material"] {
+               font-family: 'Material Design Icons', 'MaterialCommunityIcons' !important;
+            }
+
             body { background-color: #f8fafc; }
             /* Esconde scrollbar para ficar com visual de app */
             ::-webkit-scrollbar { width: 8px; height: 8px; }
