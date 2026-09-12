@@ -162,10 +162,7 @@ export type IntelligenceSummary = {
   analyses: Array<{ id: string; caseNumber: string; provider: string; analysisType: string; content: string; sourceReference: string; createdAt: string }>;
 };
 
-const configuredApiBaseUrl =
-  typeof globalThis !== "undefined" && "process" in globalThis
-    ? (globalThis.process as { env?: { EXPO_PUBLIC_API_BASE_URL?: string } }).env?.EXPO_PUBLIC_API_BASE_URL
-    : undefined;
+const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 function resolveApiBaseUrl(): string | undefined {
   if (configuredApiBaseUrl) return configuredApiBaseUrl;
@@ -479,9 +476,10 @@ export async function getCase(id: string): Promise<RegulatoryCase | undefined> {
 export async function updateCaseStatus(id: string, status: CaseStatus, reason: string): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === id);
+    const index = cases.findIndex((caseItem) => caseItem.id === id);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       status,
       timeline: [
@@ -495,6 +493,8 @@ export async function updateCaseStatus(id: string, status: CaseStatus, reason: s
         }
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -516,9 +516,10 @@ export type CreateDeadlineInput = {
 export async function createDeadline(input: CreateDeadlineInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       deadlines: [
         ...item.deadlines,
@@ -532,6 +533,8 @@ export async function createDeadline(input: CreateDeadlineInput): Promise<Regula
         }
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -553,9 +556,10 @@ export type CreateActionInput = {
 export async function createCaseAction(input: CreateActionInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       actions: [
         ...item.actions,
@@ -569,6 +573,8 @@ export async function createCaseAction(input: CreateActionInput): Promise<Regula
         }
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -583,9 +589,10 @@ export async function createCaseAction(input: CreateActionInput): Promise<Regula
 export async function confirmClosure(caseId: string): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       closureChecklist: {
         readyToClose: false,
@@ -594,6 +601,8 @@ export async function confirmClosure(caseId: string): Promise<RegulatoryCase> {
         ]
       }
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -608,9 +617,10 @@ export async function confirmClosure(caseId: string): Promise<RegulatoryCase> {
 export async function createPrevention(input: CreatePreventionInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       preventions: [
         {
@@ -624,6 +634,8 @@ export async function createPrevention(input: CreatePreventionInput): Promise<Re
         ...item.preventions
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -638,12 +650,15 @@ export async function createPrevention(input: CreatePreventionInput): Promise<Re
 export async function completeDeadline(caseId: string, deadlineId: string): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       deadlines: item.deadlines.map((deadline) => (deadline.id === deadlineId ? { ...deadline, status: "COMPLETED" } : deadline))
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -668,10 +683,11 @@ export type AttachDocumentInput = {
 export async function attachDocument(input: AttachDocumentInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
     const stage = documentStage(input.type);
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       documents: [
         {
@@ -708,6 +724,8 @@ export async function attachDocument(input: AttachDocumentInput): Promise<Regula
         }
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -767,9 +785,10 @@ export type SmartTriageInput = {
 export async function runSmartTriage(input: SmartTriageInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       status: item.status === "RECEIVED" ? "TRIAGE" : item.status,
       aiExtractions: [
@@ -797,6 +816,8 @@ export async function runSmartTriage(input: SmartTriageInput): Promise<Regulator
         }
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -811,9 +832,10 @@ export async function runSmartTriage(input: SmartTriageInput): Promise<Regulator
 export async function addNote(caseId: string, body: string): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       notes: [
         {
@@ -825,6 +847,8 @@ export async function addNote(caseId: string, body: string): Promise<RegulatoryC
         ...item.notes
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -847,9 +871,10 @@ export type RegisterDecisionInput = {
 export async function registerDecision(input: RegisterDecisionInput): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.caseId);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.caseId);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       amount: input.finalAmount || item.amount,
       decisions: [
@@ -863,6 +888,8 @@ export async function registerDecision(input: RegisterDecisionInput): Promise<Re
         ...item.decisions
       ]
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
@@ -1056,7 +1083,7 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
     const now = new Date().toISOString().slice(0, 10);
-    return {
+    const newCase: RegulatoryCase = {
       id: `local-${Date.now()}`,
       organizationId: "local",
       caseNumber: `SF-${Date.now()}`,
@@ -1086,6 +1113,9 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
       preventions: [],
       timeline: []
     };
+    cases.unshift(newCase);
+    dashboard.activeCases += 1;
+    return newCase;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/cases`, {
@@ -1100,9 +1130,10 @@ export async function createCase(input: CreateCaseInput): Promise<RegulatoryCase
 export async function updateCase(input: CreateCaseInput & { id: string }): Promise<RegulatoryCase> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) {
-    const item = cases.find((caseItem) => caseItem.id === input.id);
+    const index = cases.findIndex((caseItem) => caseItem.id === input.id);
+    const item = cases[index];
     if (!item) throw new Error("Prontuario nao encontrado");
-    return {
+    const updated: RegulatoryCase = {
       ...item,
       infractionNumber: input.infractionNumber,
       processNumber: input.processNumber,
@@ -1116,6 +1147,8 @@ export async function updateCase(input: CreateCaseInput & { id: string }): Promi
       amount: input.amount,
       authority: input.authority || item.authority
     };
+    cases[index] = updated;
+    return updated;
   }
 
   const response = await fetch(`${apiBaseUrl}/api/v1/cases`, {
@@ -1129,7 +1162,14 @@ export async function updateCase(input: CreateCaseInput & { id: string }): Promi
 
 export async function deleteCase(id: string): Promise<{ ok: boolean }> {
   const apiBaseUrl = resolveApiBaseUrl();
-  if (apiBaseUrl === undefined) return { ok: true };
+  if (apiBaseUrl === undefined) {
+    const index = cases.findIndex((caseItem) => caseItem.id === id);
+    if (index !== -1) {
+      cases.splice(index, 1);
+      dashboard.activeCases = Math.max(0, dashboard.activeCases - 1);
+    }
+    return { ok: true };
+  }
   const response = await fetch(`${apiBaseUrl}/api/v1/cases?id=${encodeURIComponent(id)}`, {
     method: "DELETE",
     headers: authHeaders()
