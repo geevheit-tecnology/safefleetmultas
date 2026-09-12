@@ -29,7 +29,7 @@ fun Application.module() {
         allowHeader("X-Organization-Id")
         allowHost("localhost:8081")
         allowHost("localhost:8082")
-        allowHost("*.vercel.app", schemes = listOf("https"))
+        anyHost()
     }
     install(ContentNegotiation) { json() }
     routing {

@@ -52,6 +52,16 @@ class RegulatoryCaseRoutes {
                 )
             ))
         }
+        route.get("/admin/security") {
+            call.respond(mapOf(
+                "user" to mapOf(
+                    "id" to "admin-1",
+                    "name" to "Administrador",
+                    "email" to "admin@safefleet.com",
+                    "role" to "ADMIN"
+                )
+            ))
+        }
     }
 
     private fun io.ktor.server.application.ApplicationCall.organizationId(): String =
