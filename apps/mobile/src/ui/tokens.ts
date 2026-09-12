@@ -15,53 +15,53 @@ export const tokens = {
     tiny: 11
   },
   radius: {
-    sm: 6,
-    md: 8,
-    lg: 8
+    sm: 8,
+    md: 12,
+    lg: 16
   },
   elevation: {
     border: 1
   },
   colors: {
-    background: "#f6f8fb",
+    background: "#f8fafc", // Lighter, premium slate background
     surface: "#ffffff",
-    surfaceMuted: "#f9fafb",
-    border: "#e6e8ee",
-    borderStrong: "#cfd5df",
-    text: "#172033",
-    muted: "#667085",
-    brand: "#405978",
-    primary: "#5c7fa8",
-    success: "#17745b",
-    warning: "#a66a00",
-    danger: "#b23b3b",
-    infoSoft: "#eef4fb",
-    warningSoft: "#fff8eb",
-    successSoft: "#edf8f4",
-    dangerSoft: "#fff1f1"
+    surfaceMuted: "#f1f5f9",
+    border: "#e2e8f0",
+    borderStrong: "#cbd5e1",
+    text: "#0f172a",
+    muted: "#64748b",
+    brand: "#4338ca", // Premium Indigo
+    primary: "#4f46e5", // Vibrant Indigo
+    success: "#059669",
+    warning: "#d97706",
+    danger: "#dc2626",
+    infoSoft: "#eef2ff",
+    warningSoft: "#fffbeb",
+    successSoft: "#ecfdf5",
+    dangerSoft: "#fef2f2"
   },
   status: {
-    RECEIVED: "#5c7fa8",
-    TRIAGE: "#5c7fa8",
-    ANALYSIS: "#a66a00",
-    ACTION_REQUIRED: "#b23b3b",
-    IN_TREATMENT: "#5c7fa8",
-    WAITING_DOCUMENTS: "#a66a00",
-    WAITING_EXTERNAL: "#a66a00",
-    DECISION: "#1f2a44",
-    APPEAL: "#1f2a44",
-    FINALIZATION: "#17745b",
-    CLOSED: "#17745b",
-    PENDING: "#a66a00",
-    IN_PROGRESS: "#5c7fa8",
-    DONE: "#17745b",
-    CANCELLED: "#667085"
+    RECEIVED: "#4f46e5",
+    TRIAGE: "#6366f1",
+    ANALYSIS: "#d97706",
+    ACTION_REQUIRED: "#dc2626",
+    IN_TREATMENT: "#4f46e5",
+    WAITING_DOCUMENTS: "#d97706",
+    WAITING_EXTERNAL: "#d97706",
+    DECISION: "#334155",
+    APPEAL: "#334155",
+    FINALIZATION: "#059669",
+    CLOSED: "#059669",
+    PENDING: "#d97706",
+    IN_PROGRESS: "#4f46e5",
+    DONE: "#059669",
+    CANCELLED: "#94a3b8"
   },
   risk: {
-    LOW: "#17745b",
-    MEDIUM: "#a66a00",
-    HIGH: "#b23b3b",
-    CRITICAL: "#9f2f2f"
+    LOW: "#059669",
+    MEDIUM: "#d97706",
+    HIGH: "#ea580c",
+    CRITICAL: "#dc2626"
   },
   components: {
     controlHeight: 42,
