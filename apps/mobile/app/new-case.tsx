@@ -1,8 +1,9 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { createWorker } from "tesseract.js";
 import { attachDocument, createCase, runSmartTriage } from "../src/api/client";
 import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
@@ -61,6 +62,7 @@ export default function NewCaseScreen() {
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { codeLabel } = useLanguage();
@@ -128,9 +130,14 @@ export default function NewCaseScreen() {
       return;
     }
     setScanning(true);
+    setScanStatus(isImageDocument(selectedDocument) ? "Lendo imagem por OCR..." : "Lendo texto informado...");
     setError(null);
     try {
-      const result = await scanSelectedDocument(selectedDocument, ocrText);
+      const extractedText = isImageDocument(selectedDocument) ? await extractImageText(selectedDocument, setScanStatus) : "";
+      const combinedText = [ocrText, extractedText].filter(Boolean).join("\n");
+      if (extractedText && extractedText !== ocrText) setOcrText(combinedText);
+      setScanStatus("Extraindo campos da multa...");
+      const result = await scanSelectedDocument(selectedDocument, combinedText);
       setScanResult(result);
       if (result.fields.infractionNumber && !infractionNumber.trim()) setInfractionNumber(result.fields.infractionNumber);
       if (result.fields.processNumber && !processNumber.trim()) setProcessNumber(result.fields.processNumber);
@@ -145,6 +152,7 @@ export default function NewCaseScreen() {
       if (result.fields.description && !description.trim()) setDescription(result.fields.description);
     } finally {
       setScanning(false);
+      setScanStatus("");
     }
   };
 
@@ -217,7 +225,7 @@ export default function NewCaseScreen() {
       <Panel title="Captura do documento">
         <View style={styles.uploadBox}>
           <Text style={styles.uploadTitle}>Fotografar ou anexar documento</Text>
-          <Text style={styles.body}>Use a camera do celular, selecione uma imagem ou anexe um PDF. Se o OCR do aparelho ou PDF permitir copiar texto, cole abaixo para preencher todos os campos do auto.</Text>
+          <Text style={styles.body}>Use a camera do celular, selecione uma imagem ou anexe um PDF. Fotos e imagens passam por OCR automatico; PDF escaneado pode ser complementado colando o texto reconhecido abaixo.</Text>
           <View style={styles.captureActions}>
             <CaptureButton label="Tirar foto" onPress={takePhoto} />
             <CaptureButton label="Escolher imagem" onPress={chooseImage} />
@@ -233,6 +241,7 @@ export default function NewCaseScreen() {
                 </Pressable>
                 <Pill text="Edicao manual liberada" tone="#17745b" />
               </View>
+              {scanStatus ? <Text style={styles.scanStatus}>{scanStatus}</Text> : null}
               {scanResult ? (
                 <View style={styles.scanSummary}>
                   <Text style={styles.scanTitle}>Leitura preliminar</Text>
@@ -415,6 +424,32 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
   };
 }
 
+function isImageDocument(document: SelectedDocument) {
+  return document.mimeType.startsWith("image/");
+}
+
+async function extractImageText(document: SelectedDocument, onStatus: (status: string) => void) {
+  if (!isImageDocument(document)) return "";
+  if (Platform.OS !== "web") {
+    onStatus("OCR automatico nativo ainda exige provedor externo; usando texto informado.");
+    return "";
+  }
+  try {
+    const worker = await createWorker("por", 1, {
+      logger: (event) => {
+        if (event.status === "recognizing text") onStatus(`Reconhecendo texto... ${Math.round(event.progress * 100)}%`);
+        if (event.status === "loading language traineddata") onStatus("Carregando idioma portugues...");
+      }
+    });
+    const result = await worker.recognize(document.uri);
+    await worker.terminate();
+    return result.data.text.trim();
+  } catch {
+    onStatus("Nao foi possivel concluir o OCR automatico; use o texto colado ou revise manualmente.");
+    return "";
+  }
+}
+
 function capture(text: string, pattern: RegExp) {
   return text.match(pattern)?.[1]?.replace(/\s+/g, " ").trim();
 }
@@ -569,6 +604,7 @@ const styles = StyleSheet.create({
   scanSummary: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#dce5ef", borderRadius: 8, padding: 10, gap: 4, marginTop: 4 },
   scanTitle: { color: "#101828", fontWeight: "900", fontSize: 13 },
   scanNote: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  scanStatus: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "800" },
   ocrTextBox: { gap: 6, marginTop: 8 },
   ocrTextArea: { minHeight: 120, paddingTop: 12, textAlignVertical: "top" },
   formGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
