@@ -77,6 +77,7 @@ export type SaveUserInput = {
 };
 
 export type AuthUser = { id: string; name: string; email: string; role: string };
+export type OcrResult = { text: string; provider: string; confidence?: number; warning?: string };
 
 const authStorageKey = "safefleet-auth";
 
@@ -190,6 +191,19 @@ export function getAuthToken(): string | null {
 
 export function clearAuthSession() {
   if (typeof window !== "undefined") window.localStorage.removeItem(authStorageKey);
+}
+
+export async function extractOcrText(input: { image: string; mimeType: string; fileName?: string }): Promise<OcrResult> {
+  const apiBaseUrl = resolveApiBaseUrl();
+  if (apiBaseUrl === undefined) throw new Error("OCR remoto indisponivel no modo local.");
+  const response = await fetch(`${apiBaseUrl}/api/v1/ocr`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.message || "Falha no OCR remoto");
+  return payload;
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {

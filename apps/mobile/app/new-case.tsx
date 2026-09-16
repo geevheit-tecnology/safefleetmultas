@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { createWorker } from "tesseract.js";
-import { attachDocument, createCase, runSmartTriage } from "../src/api/client";
+import { attachDocument, createCase, extractOcrText, runSmartTriage } from "../src/api/client";
 import { useLanguage } from "../src/i18n";
 import { AppShell } from "../src/ui/AppShell";
 import { Panel, Pill } from "../src/ui/Primitives";
@@ -479,6 +479,8 @@ async function extractImageText(document: SelectedDocument, onStatus: (status: s
     onStatus("OCR automatico nativo ainda exige provedor externo; usando texto informado.");
     return "";
   }
+  const remoteText = await extractImageTextRemotely(document, onStatus);
+  if (remoteText) return remoteText;
   try {
     const worker = await createWorker("por", 1, {
       logger: (event) => {
@@ -508,6 +510,19 @@ async function extractImageText(document: SelectedDocument, onStatus: (status: s
   }
 }
 
+async function extractImageTextRemotely(document: SelectedDocument, onStatus: (status: string) => void) {
+  try {
+    onStatus("Enviando imagem para OCR remoto...");
+    const image = await imageUriToJpegDataUrl(document.uri, 1800);
+    const result = await extractOcrText({ image, mimeType: "image/jpeg", fileName: document.name });
+    if (result.warning) onStatus(result.warning);
+    return result.text.trim();
+  } catch {
+    onStatus("OCR remoto indisponivel; tentando leitura local no navegador...");
+    return "";
+  }
+}
+
 async function buildOcrImageVariants(uri: string) {
   if (typeof document === "undefined" || typeof createImageBitmap === "undefined") return [uri];
   try {
@@ -518,6 +533,20 @@ async function buildOcrImageVariants(uri: string) {
   } catch {
     return [uri];
   }
+}
+
+async function imageUriToJpegDataUrl(uri: string, maxSide: number) {
+  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") return uri;
+  const response = await fetch(uri);
+  const bitmap = await createImageBitmap(await response.blob());
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return uri;
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 function rotateBitmapToDataUrl(bitmap: ImageBitmap, rotation: number) {
