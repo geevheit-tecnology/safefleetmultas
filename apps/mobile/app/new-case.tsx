@@ -139,17 +139,17 @@ export default function NewCaseScreen() {
       setScanStatus("Extraindo campos da multa...");
       const result = await scanSelectedDocument(selectedDocument, combinedText);
       setScanResult(result);
-      if (result.fields.infractionNumber && !infractionNumber.trim()) setInfractionNumber(result.fields.infractionNumber);
-      if (result.fields.processNumber && !processNumber.trim()) setProcessNumber(result.fields.processNumber);
-      if (result.fields.category && (!category.trim() || category === "Transporte")) setCategory(result.fields.category);
-      if (result.fields.subcategory && !subcategory.trim()) setSubcategory(result.fields.subcategory);
-      if (result.fields.vehiclePlate && !vehiclePlate.trim()) setVehiclePlate(result.fields.vehiclePlate);
-      if (result.fields.driverName && !driverName.trim()) setDriverName(result.fields.driverName);
-      if (result.fields.rntrc && !rntrc.trim()) setRntrc(result.fields.rntrc);
-      if (result.fields.authority && !authority.trim()) setAuthority(result.fields.authority);
-      if (result.fields.location && !location.trim()) setLocation(result.fields.location);
-      if (result.fields.amount && !amount.trim()) setAmount(result.fields.amount);
-      if (result.fields.description && !description.trim()) setDescription(result.fields.description);
+      if (result.fields.infractionNumber) setInfractionNumber(result.fields.infractionNumber);
+      if (result.fields.processNumber) setProcessNumber(result.fields.processNumber);
+      if (result.fields.category) setCategory(result.fields.category);
+      if (result.fields.subcategory) setSubcategory(result.fields.subcategory);
+      if (result.fields.vehiclePlate) setVehiclePlate(result.fields.vehiclePlate);
+      if (result.fields.driverName) setDriverName(result.fields.driverName);
+      if (result.fields.rntrc) setRntrc(result.fields.rntrc);
+      if (result.fields.authority) setAuthority(result.fields.authority);
+      if (result.fields.location) setLocation(result.fields.location);
+      if (result.fields.amount) setAmount(result.fields.amount);
+      if (result.fields.description) setDescription(result.fields.description);
     } finally {
       setScanning(false);
       setScanStatus("");
@@ -321,22 +321,31 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
     decodeURIComponent(document.name).replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")
   ].filter(Boolean).join("\n");
   const normalized = source.toUpperCase();
+  const compact = normalized.replace(/[^A-Z0-9]/g, "");
   const infractionNumber =
     capture(normalized, /N[ºO]?\s*DO\s*AUTO\s*DE\s*INFRA[CÇ][AÃ]O\s+([A-Z0-9.-]{8,})/) ??
+    capture(compact, /(FELTF\d{8,})/) ??
     capture(normalized, /\b(FELTF\d{8,})\b/) ??
     capture(normalized, /\b(?:AI|AIT|AUTO|INFRA[CÇ][AÃ]O|MULTA)\s*[-./:]?\s*([A-Z0-9]{3,}[-./]?\d{2,})\b/);
   const processNumber = capture(normalized, /PROCESSO\s+ADMINISTRATIVO\s+([0-9./-]{8,})/);
   const vehiclePlate = normalizePlate(
     capture(normalized, /PLACA\s*\/?\s*UF\s+([A-Z0-9-]{7,8})/) ??
+    capture(normalized, /PLACA[\s\S]{0,35}?\b([A-Z]{2,3}[- ]?[0-9][A-Z0-9][0-9]{2})\b/) ??
     capture(normalized, /\b[A-Z]{3}[- ]?\d[A-Z0-9]\d{2}\b/)
   );
-  const rntrc = capture(normalized, /\bRNTRC\s+([0-9]{6,12})\b/);
+  const rntrc = capture(normalized, /\bRNTRC\s+([0-9]{5,12})\b/) ?? capture(normalized, /N[ÚU]MERO\s+DO\s+DOCUMENTO\s+([0-9]{5,12})/);
   const amount =
+    capture(normalized, /MULTA[\s\S]{0,80}?R\$\s*([0-9.]+,\d{2})/) ??
     capture(normalized, /MULTA(?:\s+DE)?\s+R\$\s*([0-9.]+,\d{2})/) ??
     capture(normalized, /VALOR(?:\s+DA\s+MULTA)?\s*R\$\s*([0-9.]+,\d{2})/) ??
-    capture(normalized, /R\$\s*([0-9.]+,\d{2})/);
-  const autuadoName = cleanPersonOrCompanyName(capture(normalized, /IDENTIFICA[CÇ][AÃ]O\s+DO\s+AUTUADO[\s\S]{0,180}?NOME\s+([A-Z0-9 .&/-]+?)\s+(?:CPF|CNPJ|CPF\/CNPJ)/));
-  const autuadoDocument = capture(normalized, /(?:CPF|CNPJ|CPF\/CNPJ)\s+([0-9./-]{11,18})/);
+    pickLikelyFineAmount(normalized);
+  const autuadoDocument = normalizeBrazilianDocument(
+    capture(normalized, /(?:CPF|CNPJ|CPF\/CNPJ)[^\d]{0,10}([0-9./-]{11,18})/) ??
+      capture(normalized, /\b(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})\b/)
+  );
+  const autuadoName =
+    cleanPersonOrCompanyName(capture(normalized, /IDENTIFICA[CÇ][AÃ]O\s+DO\s+AUTUADO[\s\S]{0,180}?NOME\s+([A-Z0-9 .&/-]+?)\s+(?:CPF|CNPJ|CPF\/CNPJ)/)) ??
+    extractNameNearDocument(normalized, autuadoDocument);
   const address = cleanLooseField(capture(normalized, /ENDERE[CÇ]O\s+([A-Z0-9 .ºª,/-]{3,90}?)\s+MUNIC[IÍ]PIO/), 90);
   const origin = cleanLooseField(capture(normalized, /ORIGEM\s+([A-Z .,-]{3,50}?)\s+DESTINO/), 50);
   const destination = cleanLooseField(capture(normalized, /DESTINO\s+([A-Z .,-]{3,50}?)\s+DIST[ÂA]NCIA/), 50);
@@ -345,7 +354,7 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
   const code = capture(normalized, /C[ÓO]DIGO\s+([0-9.]+)/);
   const issueDate = captureDate(normalized, /DATA\s+DE\s+EMISS[ÃA]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
   const infractionDate = captureDate(normalized, /DATA\s+DA\s+INFRA[CÇ][AÃ]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
-  const defenseDeadline = captureDate(normalized, /AT[ÉE]\s+O\s+DIA\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
+  const defenseDeadline = captureDate(normalized, /AT[ÉE]\s+O\s+DIA\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/) ?? pickFutureDate(normalized);
   const location = cleanLooseField(
     capture(normalized, /LOCAL\s+([A-Z0-9 .ºª,-]{3,80}?)\s+MUNIC[IÍ]PIO/) ??
       [capture(normalized, /MUNIC[IÍ]PIO\s+([A-Z .-]{3,40})/), capture(normalized, /\bUF\s+([A-Z]{2})\b/)].filter(Boolean).join("/"),
@@ -463,13 +472,67 @@ async function extractImageText(document: SelectedDocument, onStatus: (status: s
         if (event.status === "loading language traineddata") onStatus("Carregando idioma portugues...");
       }
     });
-    const result = await worker.recognize(document.uri);
+    const variants = await buildOcrImageVariants(document.uri);
+    let bestText = "";
+    let bestScore = -1;
+    for (let index = 0; index < variants.length; index += 1) {
+      onStatus(variants.length > 1 ? `Testando orientacao da foto ${index + 1}/${variants.length}...` : "Reconhecendo texto...");
+      const result = await worker.recognize(variants[index]);
+      const text = result.data.text.trim();
+      const score = scoreOcrText(text);
+      if (score > bestScore) {
+        bestScore = score;
+        bestText = text;
+      }
+      if (score >= 10) break;
+    }
     await worker.terminate();
-    return result.data.text.trim();
+    return bestText;
   } catch {
     onStatus("Nao foi possivel concluir o OCR automatico; use o texto colado ou revise manualmente.");
     return "";
   }
+}
+
+async function buildOcrImageVariants(uri: string) {
+  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") return [uri];
+  try {
+    const response = await fetch(uri);
+    const bitmap = await createImageBitmap(await response.blob());
+    const rotations = [0, 90, -90, 180];
+    return rotations.map((rotation) => rotateBitmapToDataUrl(bitmap, rotation));
+  } catch {
+    return [uri];
+  }
+}
+
+function rotateBitmapToDataUrl(bitmap: ImageBitmap, rotation: number) {
+  const canvas = document.createElement("canvas");
+  const sideways = Math.abs(rotation) === 90;
+  canvas.width = sideways ? bitmap.height : bitmap.width;
+  canvas.height = sideways ? bitmap.width : bitmap.height;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate((rotation * Math.PI) / 180);
+  context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
+function scoreOcrText(text: string) {
+  const normalized = text.toUpperCase();
+  return [
+    /ANTT/.test(normalized),
+    /FELTF\s*\d{6,}/.test(normalized.replace(/\s+/g, "")),
+    /AUTO\s+DE\s+INFRA/.test(normalized),
+    /CPF\s*\/?\s*CNPJ|CNPJ/.test(normalized),
+    /PLACA/.test(normalized),
+    /RNTRC/.test(normalized),
+    /PISO\s+MINIMO|FRETE/.test(normalized),
+    /R\$\s*\d/.test(normalized),
+    /DATA\s+DA\s+INFRA/.test(normalized),
+    /IDENTIFICA/.test(normalized)
+  ].filter(Boolean).length;
 }
 
 function capture(text: string, pattern: RegExp) {
@@ -502,6 +565,42 @@ function cleanPersonOrCompanyName(value?: string) {
   if (!cleaned) return undefined;
   if (/\b(?:RUA|ENDERECO|MUNICIPIO|CPF|CNPJ|PLACA|MODELO|DOCUMENTO)\b/i.test(cleaned)) return undefined;
   return cleaned;
+}
+
+function normalizeBrazilianDocument(value?: string) {
+  if (!value) return undefined;
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 14) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  if (digits.length === 11) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  return undefined;
+}
+
+function pickLikelyFineAmount(text: string) {
+  const values = Array.from(text.matchAll(/R\$\s*([0-9.]+,\d{2})/g)).map((match) => match[1]);
+  if (values.length === 0) return undefined;
+  const scored = values
+    .map((value) => ({ value, amount: parseMoney(value) }))
+    .filter((item) => item.amount >= 50 && item.amount <= 500000)
+    .sort((left, right) => right.amount - left.amount);
+  return scored[0]?.value;
+}
+
+function pickFutureDate(text: string) {
+  const dates = Array.from(text.matchAll(/\b([0-9]{2}\/[0-9]{2}\/[0-9]{4})\b/g)).map((match) => match[1]);
+  if (dates.length === 0) return undefined;
+  return dates[dates.length - 1];
+}
+
+function extractNameNearDocument(text: string, documentNumber?: string) {
+  if (!documentNumber) return undefined;
+  const digits = documentNumber.replace(/\D/g, "");
+  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const index = lines.findIndex((line) => line.replace(/\D/g, "").includes(digits.slice(0, 8)));
+  const candidates = index >= 0 ? lines.slice(Math.max(0, index - 4), index) : [];
+  return candidates
+    .reverse()
+    .map((line) => cleanPersonOrCompanyName(line.replace(/^NOME\s+/i, "")))
+    .find(Boolean);
 }
 
 function captureDate(text: string, pattern: RegExp) {
