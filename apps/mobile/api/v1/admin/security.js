@@ -23,6 +23,9 @@ module.exports = async function handler(req, res) {
 async function getSecurity(req, res) {
   const orgId = organizationId(req);
   await withClient(res, async (client) => {
+    await ensureAuthSchema(client);
+    await ensureOrganization(client, orgId);
+    await ensureRbac(client, orgId);
     const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.manage_users);
     if (!authz.ok) return sendJson(res, authz.status, { error: authz.error, message: authz.message });
     const [org, users, roles, permissions, audit] = await Promise.all([
@@ -282,6 +285,9 @@ async function deleteUser(req, res) {
   await withClient(res, async (client) => {
     await client.query("begin");
     try {
+      await ensureAuthSchema(client);
+      await ensureOrganization(client, orgId);
+      await ensureRbac(client, orgId);
       const authz = await authorize(client, req, orgId, ACTION_PERMISSIONS.manage_users);
       if (!authz.ok || authz.role !== "ADMIN") {
         await client.query("rollback");

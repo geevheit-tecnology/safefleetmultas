@@ -26,7 +26,12 @@ export default function FirstAccessScreen() {
       setMessage("Administrador criado. Proximos usuarios devem ser cadastrados pela tela Admin.");
       setTimeout(() => router.replace("/login"), 700);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Nao foi possivel criar o primeiro administrador.");
+      const message = submitError instanceof Error ? submitError.message : "Nao foi possivel criar o primeiro administrador.";
+      if (message.includes("Primeiro acesso ja foi realizado")) {
+        setError(`${message} Use a tela de login com o admin cadastrado.`);
+        return;
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }
