@@ -317,7 +317,7 @@ function CaptureButton({ label, onPress }: { label: string; onPress: () => void 
 async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): Promise<ScanResult> {
   await new Promise((resolve) => setTimeout(resolve, 350));
   const source = [
-    ocrText,
+    normalizeOcrText(ocrText),
     decodeURIComponent(document.name).replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")
   ].filter(Boolean).join("\n");
   const normalized = source.toUpperCase();
@@ -335,20 +335,22 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
     capture(normalized, /MULTA(?:\s+DE)?\s+R\$\s*([0-9.]+,\d{2})/) ??
     capture(normalized, /VALOR(?:\s+DA\s+MULTA)?\s*R\$\s*([0-9.]+,\d{2})/) ??
     capture(normalized, /R\$\s*([0-9.]+,\d{2})/);
-  const autuadoName = capture(normalized, /IDENTIFICA[CÇ][AÃ]O\s+DO\s+AUTUADO[\s\S]*?NOME\s+([A-Z0-9 .&/-]+?)\s+(?:CPF|CNPJ|CPF\/CNPJ)/);
+  const autuadoName = cleanPersonOrCompanyName(capture(normalized, /IDENTIFICA[CÇ][AÃ]O\s+DO\s+AUTUADO[\s\S]{0,180}?NOME\s+([A-Z0-9 .&/-]+?)\s+(?:CPF|CNPJ|CPF\/CNPJ)/));
   const autuadoDocument = capture(normalized, /(?:CPF|CNPJ|CPF\/CNPJ)\s+([0-9./-]{11,18})/);
-  const address = capture(normalized, /ENDERE[CÇ]O\s+([A-Z0-9 .ºª,/-]+?)\s+MUNIC[IÍ]PIO/);
-  const origin = capture(normalized, /ORIGEM\s+([A-Z .,-]+?)\s+DESTINO/);
-  const destination = capture(normalized, /DESTINO\s+([A-Z .,-]+?)\s+DIST[ÂA]NCIA/);
+  const address = cleanLooseField(capture(normalized, /ENDERE[CÇ]O\s+([A-Z0-9 .ºª,/-]{3,90}?)\s+MUNIC[IÍ]PIO/), 90);
+  const origin = cleanLooseField(capture(normalized, /ORIGEM\s+([A-Z .,-]{3,50}?)\s+DESTINO/), 50);
+  const destination = cleanLooseField(capture(normalized, /DESTINO\s+([A-Z .,-]{3,50}?)\s+DIST[ÂA]NCIA/), 50);
   const distanceKm = capture(normalized, /DIST[ÂA]NCIA(?:\s+DE\s+ORIGEM\/DESTINO)?\s*\(?KM\)?\s+([0-9.,]+)/);
   const article = capture(normalized, /ARTIGO\s+([0-9]+[A-Z]?)/);
   const code = capture(normalized, /C[ÓO]DIGO\s+([0-9.]+)/);
   const issueDate = captureDate(normalized, /DATA\s+DE\s+EMISS[ÃA]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
   const infractionDate = captureDate(normalized, /DATA\s+DA\s+INFRA[CÇ][AÃ]O\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
   const defenseDeadline = captureDate(normalized, /AT[ÉE]\s+O\s+DIA\s+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
-  const location =
-    capture(normalized, /LOCAL\s+([A-Z0-9 .ºª,-]+?)\s+MUNIC[IÍ]PIO/) ??
-    [capture(normalized, /MUNIC[IÍ]PIO\s+([A-Z .-]+)/), capture(normalized, /\bUF\s+([A-Z]{2})\b/)].filter(Boolean).join("/");
+  const location = cleanLooseField(
+    capture(normalized, /LOCAL\s+([A-Z0-9 .ºª,-]{3,80}?)\s+MUNIC[IÍ]PIO/) ??
+      [capture(normalized, /MUNIC[IÍ]PIO\s+([A-Z .-]{3,40})/), capture(normalized, /\bUF\s+([A-Z]{2})\b/)].filter(Boolean).join("/"),
+    80
+  );
   const authority = normalized.includes("ANTT") ? "ANTT" : inferAuthority(normalized);
   const category = inferCategory(normalized);
   const subcategory = inferSubcategory(normalized);
@@ -366,6 +368,22 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
   if (category) notes.push(`Categoria sugerida: ${category}`);
   if (notes.length === 0) notes.push("Nao encontrei campos confiaveis no nome do arquivo; preenchi uma classificacao inicial para revisao.");
 
+  const structuredFieldCount = [
+    infractionNumber,
+    processNumber,
+    autuadoName,
+    autuadoDocument,
+    vehiclePlate,
+    rntrc,
+    amount,
+    origin,
+    destination,
+    article,
+    code,
+    issueDate,
+    infractionDate,
+    defenseDeadline
+  ].filter(Boolean).length;
   const confidence = Math.min(
     96,
     30 +
@@ -379,6 +397,24 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       (article || code ? 6 : 0) +
       (issueDate || infractionDate || defenseDeadline ? 7 : 0)
   );
+  const description =
+    structuredFieldCount >= 3
+      ? buildExtractedDescription({
+          documentName: document.name,
+          autuadoName,
+          autuadoDocument,
+          address,
+          origin,
+          destination,
+          distanceKm,
+          article,
+          code,
+          issueDate,
+          infractionDate,
+          defenseDeadline,
+          processNumber
+        })
+      : `Documento ${document.name} lido por OCR. Campos extraidos com baixa confianca; revisar manualmente antes de criar defesa, recurso ou prazo.`;
 
   return {
     confidence,
@@ -389,7 +425,7 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       category,
       subcategory,
       vehiclePlate,
-      driverName: capture(normalized, /NOME\s+DO\s+CONDUTOR\s+([A-Z .'-]+?)(?:\s+CPF|\s+CNH|$)/),
+      driverName: cleanPersonOrCompanyName(capture(normalized, /NOME\s+DO\s+CONDUTOR\s+([A-Z .'-]{3,70}?)(?:\s+CPF|\s+CNH|$)/)),
       rntrc,
       authority,
       location,
@@ -405,21 +441,7 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       issueDate,
       infractionDate,
       defenseDeadline,
-      description: buildExtractedDescription({
-        documentName: document.name,
-        autuadoName,
-        autuadoDocument,
-        address,
-        origin,
-        destination,
-        distanceKm,
-        article,
-        code,
-        issueDate,
-        infractionDate,
-        defenseDeadline,
-        processNumber
-      })
+      description
     }
   };
 }
@@ -452,6 +474,34 @@ async function extractImageText(document: SelectedDocument, onStatus: (status: s
 
 function capture(text: string, pattern: RegExp) {
   return text.match(pattern)?.[1]?.replace(/\s+/g, " ").trim();
+}
+
+function normalizeOcrText(value: string) {
+  return value
+    .replace(/[|_[\]{}]+/g, " ")
+    .replace(/[^\S\r\n]+/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 2)
+    .join("\n");
+}
+
+function cleanLooseField(value?: string, maxLength = 80) {
+  if (!value) return undefined;
+  const cleaned = value
+    .replace(/\s+/g, " ")
+    .replace(/\b(?:IDENTIFICA[CÇ][AÃ]O|DOCUMENTA[CÇ][AÃ]O|INFRA[CÇ][AÃ]O|CALCULO|C[ÓO]DIGO|ARTIGO)\b.*$/i, "")
+    .replace(/[^\wÀ-ú .,/ºª-]/g, "")
+    .trim();
+  if (cleaned.length < 3 || cleaned.length > maxLength) return undefined;
+  return cleaned;
+}
+
+function cleanPersonOrCompanyName(value?: string) {
+  const cleaned = cleanLooseField(value, 70);
+  if (!cleaned) return undefined;
+  if (/\b(?:RUA|ENDERECO|MUNICIPIO|CPF|CNPJ|PLACA|MODELO|DOCUMENTO)\b/i.test(cleaned)) return undefined;
+  return cleaned;
 }
 
 function captureDate(text: string, pattern: RegExp) {
