@@ -196,10 +196,10 @@ export function clearAuthSession() {
 export async function extractOcrText(input: { image: string; mimeType: string; fileName?: string }): Promise<OcrResult> {
   const apiBaseUrl = resolveApiBaseUrl();
   if (apiBaseUrl === undefined) throw new Error("OCR remoto indisponivel no modo local.");
-  const response = await fetch(`${apiBaseUrl}/api/v1/ocr`, {
+  const response = await fetch(`${apiBaseUrl}/api/v1/case`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(input)
+    body: JSON.stringify({ action: "remote_ocr", ...input })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || "Falha no OCR remoto");
