@@ -59,6 +59,7 @@ export default function NewCaseScreen() {
   const [location, setLocation] = useState("");
   const [amount, setAmount] = useState("");
   const [ocrText, setOcrText] = useState("");
+  const [showOcrText, setShowOcrText] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -136,6 +137,7 @@ export default function NewCaseScreen() {
       const extractedText = isImageDocument(selectedDocument) ? await extractImageText(selectedDocument, setScanStatus) : "";
       const combinedText = [ocrText, extractedText].filter(Boolean).join("\n");
       if (extractedText && extractedText !== ocrText) setOcrText(combinedText);
+      if (extractedText) setShowOcrText(false);
       setScanStatus("Extraindo campos da multa...");
       const result = await scanSelectedDocument(selectedDocument, combinedText);
       setScanResult(result);
@@ -254,15 +256,26 @@ export default function NewCaseScreen() {
             <Pill text="Foto, imagem ou PDF" tone="#5c7fa8" />
           )}
           <View style={styles.ocrTextBox}>
-            <Text style={styles.label}>Texto OCR ou texto copiado do PDF</Text>
-            <TextInput
-              multiline
-              value={ocrText}
-              onChangeText={setOcrText}
-              placeholder="Cole aqui o texto reconhecido da notificacao para extrair numero do auto, autuado, CNPJ, placa, RNTRC, valor, artigo, local e datas."
-              style={[styles.input, styles.ocrTextArea]}
-              placeholderTextColor="#98a2b3"
-            />
+            <View style={styles.ocrHeader}>
+              <Text style={styles.label}>Texto OCR ou texto copiado do PDF</Text>
+              <Pressable onPress={() => setShowOcrText((value) => !value)} style={({ pressed }) => [styles.smallGhostButton, pressed && styles.pressed]}>
+                <Text style={styles.smallGhostButtonText}>{showOcrText ? "Ocultar texto" : "Ver texto OCR"}</Text>
+              </Pressable>
+            </View>
+            {showOcrText ? (
+              <TextInput
+                multiline
+                value={ocrText}
+                onChangeText={setOcrText}
+                placeholder="Cole aqui o texto reconhecido da notificacao para extrair numero do auto, autuado, CNPJ, placa, RNTRC, valor, artigo, local e datas."
+                style={[styles.input, styles.ocrTextArea]}
+                placeholderTextColor="#98a2b3"
+              />
+            ) : (
+              <Text style={styles.ocrPreview}>
+                {ocrText ? "Texto OCR capturado. Abra apenas se precisar conferir ou colar texto melhor." : "Opcional: cole aqui o texto do PDF ou abra para conferir o OCR."}
+              </Text>
+            )}
           </View>
         </View>
       </Panel>
@@ -360,23 +373,6 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       [capture(normalized, /MUNIC[IÍ]PIO\s+([A-Z .-]{3,40})/), capture(normalized, /\bUF\s+([A-Z]{2})\b/)].filter(Boolean).join("/"),
     80
   );
-  const authority = normalized.includes("ANTT") ? "ANTT" : inferAuthority(normalized);
-  const category = inferCategory(normalized);
-  const subcategory = inferSubcategory(normalized);
-  const notes: string[] = [];
-
-  if (infractionNumber) notes.push(`Numero identificado: ${infractionNumber}`);
-  if (processNumber) notes.push(`Processo identificado: ${processNumber}`);
-  if (autuadoName) notes.push(`Autuado identificado: ${toTitleCase(autuadoName)}`);
-  if (autuadoDocument) notes.push(`Documento do autuado identificado: ${autuadoDocument}`);
-  if (vehiclePlate) notes.push(`Placa identificada: ${vehiclePlate}`);
-  if (rntrc) notes.push(`RNTRC identificado: ${rntrc}`);
-  if (amount) notes.push(`Valor identificado: R$ ${amount}`);
-  if (article || code) notes.push(`Enquadramento identificado: ${[article ? `art. ${article}` : "", code ? `codigo ${code}` : ""].filter(Boolean).join(" / ")}`);
-  if (defenseDeadline) notes.push(`Prazo citado para defesa: ${defenseDeadline}`);
-  if (category) notes.push(`Categoria sugerida: ${category}`);
-  if (notes.length === 0) notes.push("Nao encontrei campos confiaveis no nome do arquivo; preenchi uma classificacao inicial para revisao.");
-
   const structuredFieldCount = [
     infractionNumber,
     processNumber,
@@ -393,6 +389,24 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
     infractionDate,
     defenseDeadline
   ].filter(Boolean).length;
+  const reliableExtraction = structuredFieldCount >= 3 || Boolean(infractionNumber && (vehiclePlate || autuadoDocument || rntrc));
+  const authority = reliableExtraction ? (normalized.includes("ANTT") ? "ANTT" : inferAuthority(normalized)) : undefined;
+  const category = reliableExtraction ? inferCategory(normalized) : undefined;
+  const subcategory = reliableExtraction ? inferSubcategory(normalized) : undefined;
+  const safeAmount = reliableExtraction ? amount : undefined;
+  const notes: string[] = [];
+
+  if (infractionNumber) notes.push(`Numero identificado: ${infractionNumber}`);
+  if (processNumber) notes.push(`Processo identificado: ${processNumber}`);
+  if (autuadoName) notes.push(`Autuado identificado: ${toTitleCase(autuadoName)}`);
+  if (autuadoDocument) notes.push(`Documento do autuado identificado: ${autuadoDocument}`);
+  if (vehiclePlate) notes.push(`Placa identificada: ${vehiclePlate}`);
+  if (rntrc) notes.push(`RNTRC identificado: ${rntrc}`);
+  if (safeAmount) notes.push(`Valor identificado: R$ ${safeAmount}`);
+  if (article || code) notes.push(`Enquadramento identificado: ${[article ? `art. ${article}` : "", code ? `codigo ${code}` : ""].filter(Boolean).join(" / ")}`);
+  if (defenseDeadline) notes.push(`Prazo citado para defesa: ${defenseDeadline}`);
+  if (category) notes.push(`Categoria sugerida: ${category}`);
+  if (!reliableExtraction) notes.push("Leitura fraca: nao preenchi campos automaticamente. Tire outra foto mais reta, mais perto e com a parte superior da multa visivel.");
   const confidence = Math.min(
     96,
     30 +
@@ -401,7 +415,7 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       (autuadoDocument ? 8 : 0) +
       (vehiclePlate ? 10 : 0) +
       (rntrc ? 8 : 0) +
-      (amount ? 8 : 0) +
+      (safeAmount ? 8 : 0) +
       (origin || destination ? 6 : 0) +
       (article || code ? 6 : 0) +
       (issueDate || infractionDate || defenseDeadline ? 7 : 0)
@@ -438,7 +452,7 @@ async function scanSelectedDocument(document: SelectedDocument, ocrText = ""): P
       rntrc,
       authority,
       location,
-      amount,
+      amount: safeAmount,
       autuadoName: autuadoName ? toTitleCase(autuadoName) : undefined,
       autuadoDocument,
       address: address ? toTitleCase(address) : undefined,
@@ -660,9 +674,9 @@ function parseMoney(value: string) {
 }
 
 function inferCategory(text: string) {
+  if (text.includes("ANTT") || text.includes("CIOT") || text.includes("RNTRC") || text.includes("PISO") || text.includes("FRETE")) return "Transporte";
   if (text.includes("SEFAZ") || text.includes("ICMS") || text.includes("NF") || text.includes("MDF")) return "Fiscal";
   if (text.includes("TRANSITO") || text.includes("DETRAN") || text.includes("PRF") || text.includes("AIT")) return "Transito";
-  if (text.includes("ANTT") || text.includes("CIOT") || text.includes("RNTRC") || text.includes("PISO")) return "Transporte";
   if (text.includes("TRABALH") || text.includes("MTE")) return "Trabalhista";
   return "Transporte";
 }
@@ -755,6 +769,10 @@ const styles = StyleSheet.create({
   scanNote: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "700" },
   scanStatus: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "800" },
   ocrTextBox: { gap: 6, marginTop: 8 },
+  ocrHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  smallGhostButton: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 10, minHeight: 32, justifyContent: "center", backgroundColor: "#fff" },
+  smallGhostButtonText: { color: "#405978", fontWeight: "900", fontSize: 12 },
+  ocrPreview: { borderWidth: 1, borderColor: "#dce5ef", backgroundColor: "#fff", borderRadius: 8, padding: 12, color: "#667085", fontWeight: "700" },
   ocrTextArea: { minHeight: 120, paddingTop: 12, textAlignVertical: "top" },
   formGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   field: { minWidth: 240, flex: 1, gap: 6 },
