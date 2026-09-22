@@ -7,8 +7,8 @@
     "dev": "expo start",
     "web": "expo start --web --clear",
     "web:export": "expo export --platform web --clear && npm run postexport:web",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "test": "node ./tests/domain.test.mjs",
     "postexport:web": "node ./scripts/postexport-web.mjs"
   },
