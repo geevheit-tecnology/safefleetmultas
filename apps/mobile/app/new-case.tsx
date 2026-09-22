@@ -46,6 +46,8 @@ type ScanResult = {
   notes: string[];
 };
 
+const maxDocumentSizeBytes = 15 * 1024 * 1024;
+
 export default function NewCaseScreen() {
   const [infractionNumber, setInfractionNumber] = useState("");
   const [processNumber, setProcessNumber] = useState("");
@@ -78,31 +80,40 @@ export default function NewCaseScreen() {
       uri: asset.uri
     });
     setScanResult(null);
+    setScanStatus("");
   };
 
   const takePhoto = async () => {
     setError(null);
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      setError("Permita acesso a camera para fotografar o documento.");
-      return;
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setError("Permita acesso a camera para fotografar o documento.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.85,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images
+      });
+      if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "camera");
+    } catch {
+      setError("Nao foi possivel abrir a camera. Tente escolher a imagem da galeria.");
     }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      quality: 0.85,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images
-    });
-    if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "camera");
   };
 
   const chooseImage = async () => {
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: false,
-      quality: 0.9,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images
-    });
-    if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "gallery");
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: false,
+        quality: 0.9,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images
+      });
+      if (!result.canceled && result.assets[0]) setImageDocument(result.assets[0], "gallery");
+    } catch {
+      setError("Nao foi possivel abrir a galeria. Tente novamente ou preencha manualmente.");
+    }
   };
 
   const choosePdf = async () => {
@@ -130,6 +141,10 @@ export default function NewCaseScreen() {
       setError("Selecione uma foto, imagem ou PDF antes de iniciar a leitura.");
       return;
     }
+    if (selectedDocument.sizeBytes > maxDocumentSizeBytes) {
+      setError("Documento excede 15MB.");
+      return;
+    }
     setScanning(true);
     setScanStatus(isImageDocument(selectedDocument) ? "Lendo imagem por OCR..." : "Lendo texto informado...");
     setError(null);
@@ -152,6 +167,8 @@ export default function NewCaseScreen() {
       if (result.fields.location) setLocation(result.fields.location);
       if (result.fields.amount) setAmount(result.fields.amount);
       if (result.fields.description) setDescription(result.fields.description);
+    } catch {
+      setError("Nao foi possivel ler automaticamente. Preencha os campos manualmente e crie o prontuario.");
     } finally {
       setScanning(false);
       setScanStatus("");
@@ -163,7 +180,12 @@ export default function NewCaseScreen() {
     setError(null);
     let createdCaseId: string | null = null;
     try {
-      const triage = selectedDocument ? scanResult ?? await scanSelectedDocument(selectedDocument, ocrText) : null;
+      if (selectedDocument?.sizeBytes && selectedDocument.sizeBytes > maxDocumentSizeBytes) {
+        setError("Documento excede 15MB.");
+        return;
+      }
+      const shouldUseTriage = Boolean(scanResult || (selectedDocument && ocrText.trim()));
+      const triage = shouldUseTriage && selectedDocument ? scanResult ?? await scanSelectedDocument(selectedDocument, ocrText) : null;
       if (triage && !scanResult) setScanResult(triage);
       const resolvedInfractionNumber = triage?.fields.infractionNumber ?? infractionNumber;
       const resolvedCategory = triage?.fields.category ?? category;
@@ -206,6 +228,7 @@ export default function NewCaseScreen() {
             notes: triage?.notes ?? ["Documento anexado para triagem manual."]
           });
         } catch {
+          setError("Prontuario criado, mas o anexo/triagem nao foi concluido. Abrindo o prontuario para continuar.");
           router.replace(`/cases/${created.id}`);
           return;
         }
@@ -782,36 +805,36 @@ function Field({ label, value, onChangeText, placeholder, autoCapitalize, keyboa
 }
 
 const styles = StyleSheet.create({
-  uploadBox: { borderWidth: 1, borderColor: "#d0d5dd", borderStyle: "dashed", borderRadius: 8, padding: 22, gap: 10, backgroundColor: "#f9fafb" },
-  uploadTitle: { color: "#101828", fontWeight: "900", fontSize: 18 },
-  body: { color: "#667085", lineHeight: 21 },
+  uploadBox: { borderWidth: 1, borderColor: "#cfe6f7", borderStyle: "dashed", borderRadius: 8, padding: 22, gap: 10, backgroundColor: "#f8fcff" },
+  uploadTitle: { color: "#183247", fontWeight: "900", fontSize: 18 },
+  body: { color: "#6b8296", lineHeight: 21 },
   captureActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
-  captureButton: { minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: "#cfd5df", backgroundColor: "#fff", paddingHorizontal: 14, justifyContent: "center", alignItems: "center" },
-  captureButtonText: { color: "#405978", fontWeight: "900", fontSize: 13 },
-  selectedDocument: { borderWidth: 1, borderColor: "#d6ece5", backgroundColor: "#f2faf7", borderRadius: 8, padding: 12, gap: 6, marginTop: 4 },
-  selectedTitle: { color: "#101828", fontWeight: "900", flexShrink: 1 },
+  captureButton: { minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: "#cfe6f7", backgroundColor: "#ffffff", paddingHorizontal: 14, justifyContent: "center", alignItems: "center" },
+  captureButtonText: { color: "#2488e8", fontWeight: "900", fontSize: 13 },
+  selectedDocument: { borderWidth: 1, borderColor: "#c7eee7", backgroundColor: "#f2fffc", borderRadius: 8, padding: 12, gap: 6, marginTop: 4 },
+  selectedTitle: { color: "#183247", fontWeight: "900", flexShrink: 1 },
   scanActions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 2 },
-  scanButton: { minHeight: 40, borderRadius: 8, backgroundColor: "#405978", paddingHorizontal: 14, justifyContent: "center", alignItems: "center" },
+  scanButton: { minHeight: 40, borderRadius: 8, backgroundColor: "#2488e8", paddingHorizontal: 14, justifyContent: "center", alignItems: "center" },
   scanButtonText: { color: "#fff", fontWeight: "900", fontSize: 13 },
-  scanSummary: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#dce5ef", borderRadius: 8, padding: 10, gap: 4, marginTop: 4 },
-  scanTitle: { color: "#101828", fontWeight: "900", fontSize: 13 },
-  scanNote: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "700" },
-  scanStatus: { color: "#405978", fontSize: 12, lineHeight: 17, fontWeight: "800" },
+  scanSummary: { backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#dbeaf7", borderRadius: 8, padding: 10, gap: 4, marginTop: 4 },
+  scanTitle: { color: "#183247", fontWeight: "900", fontSize: 13 },
+  scanNote: { color: "#47677f", fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  scanStatus: { color: "#2488e8", fontSize: 12, lineHeight: 17, fontWeight: "800" },
   ocrTextBox: { gap: 6, marginTop: 8 },
   ocrHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  smallGhostButton: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 10, minHeight: 32, justifyContent: "center", backgroundColor: "#fff" },
-  smallGhostButtonText: { color: "#405978", fontWeight: "900", fontSize: 12 },
-  ocrPreview: { borderWidth: 1, borderColor: "#dce5ef", backgroundColor: "#fff", borderRadius: 8, padding: 12, color: "#667085", fontWeight: "700" },
+  smallGhostButton: { borderWidth: 1, borderColor: "#dbeaf7", borderRadius: 8, paddingHorizontal: 10, minHeight: 32, justifyContent: "center", backgroundColor: "#fff" },
+  smallGhostButtonText: { color: "#2488e8", fontWeight: "900", fontSize: 12 },
+  ocrPreview: { borderWidth: 1, borderColor: "#dbeaf7", backgroundColor: "#fff", borderRadius: 8, padding: 12, color: "#6b8296", fontWeight: "700" },
   ocrTextArea: { minHeight: 120, paddingTop: 12, textAlignVertical: "top" },
   formGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   field: { minWidth: 240, flex: 1, gap: 6 },
   descriptionField: { gap: 6, marginTop: 12 },
-  label: { color: "#344054", fontWeight: "800", fontSize: 12 },
-  input: { borderWidth: 1, borderColor: "#d0d5dd", borderRadius: 8, paddingHorizontal: 12, minHeight: 44, color: "#101828", backgroundColor: "#fff" },
+  label: { color: "#47677f", fontWeight: "800", fontSize: 12 },
+  input: { borderWidth: 1, borderColor: "#dbeaf7", borderRadius: 8, paddingHorizontal: 12, minHeight: 44, color: "#183247", backgroundColor: "#fff" },
   textArea: { minHeight: 96, paddingTop: 12, textAlignVertical: "top" },
   error: { color: "#b42318", fontWeight: "800", marginTop: 12 },
   actions: { alignItems: "flex-end", marginTop: 16 },
-  primaryButton: { backgroundColor: "#5c7fa8", borderRadius: 8, minHeight: 44, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  primaryButton: { backgroundColor: "#2488e8", borderRadius: 8, minHeight: 44, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
   primaryButtonText: { color: "#fff", fontWeight: "900" },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.6 }
